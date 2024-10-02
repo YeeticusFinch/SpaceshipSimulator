@@ -188,3 +188,51 @@ Controls for the radar and the targeters.
 `Radar Objects` will allow the radar to also ping inanimate objects, such as asteroids.
 
 There will then be a list of all objects and spaceships and missiles that have been radared. You can use this list to assign targets to your turrets and your missiles. You can also use the `Clear Target Lock` button to clear all target locks on that particular radar ping. There should be one item in this list for each radar ping. If they don't all fit in the window, you can use the arrow buttons to cycle through the list.
+
+## Power
+
+The reactor powers your ship, but you can also turn off your reactor and run your ship on battery.
+
+If you overclock your reactor, you get a bunch of upgrades:
+- Turrets spin faster and fire rate increases
+- All thrusters get a boost
+- Radars and targeters can reach up to triple their original range
+
+However, overclocking will destabilize your reactor.
+
+You can regain reactor stability by dropping core (it will take 10 seconds for a core to regrow).
+
+The core size is also important, you want it to stay around 10. If the core size deviates too far from 10 (ie it gets too big or too small), then you will experience power issues, random stuff will shut down. Lower reactor stabilities will mess with your core size.
+
+If your reactor stability drops below 10, it has a chance of exploding.
+
+You will also lose reactor stability if your reactor gets damaged.
+
+All electrical systems generate electric noise. Electric noise makes it easier for radars and targeters to spot your ship.
+
+You can lower your electric noise by turning off your reactor and running on batteries, but also by turning off power to different systems.
+
+Running your reactor in low power will make you a bit less detectable, but it has drawbacks:
+- Turrets spin slower and fire rate decreases
+- Thrusters get nerfed
+- Targeters get nerfed
+
+Your reactor will charge your battery.
+
+## Parts of a Ship
+
+Every component on the ship has it's own health, it's own resistances and vulnerabilities to damage types, and the ability to absorb damage from each damage type. When a projectile hits a component on a ship, be it a piece of armor, a thruster, an antenna, or whatever, it will deal the damage to that component (depending on the damage types and damage resistances), then the projectile will lose damage according to the damage absorption properties of the ship component, and depending on how much damage was absorbed, the projectile might penetrate through (weaker), might get deflected, or might just stop.
+
+![image](https://github.com/user-attachments/assets/07c1405a-0ca4-44ce-be15-29f69f59ef5b)
+
+Pictured above is the damage properties of a minigun turret. Damage factor is the factor of each damage type that it actually takes. Damage absorbed is the percent damage that the projectile will lose upon impact. So if the projectile does 10 piercing damage, the turret will suffer 7 damage, and the projectile will penetrate through the turret, but it will be weakened to only do 2 damage to the next thing it hits.
+
+Ships have many parts:
+- Reactor (powers the ship)
+- Hull (armor plating, hull pieces, it's just a box with some health)
+- Thrusters
+- Guns
+- Missile launcheres
+- Radar antennas (antennas with the green tips)
+- Targeting antennas (antennas with the red tips)
+- Cockpits (with people inside that can be killed, if you lose all your people then your ship can no longer fly)
