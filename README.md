@@ -97,6 +97,7 @@ Below are some position vs time graphs to show you the effects that Kp and Kd ha
  For reference, this is how you want it to look (pictured above).
 
 ![image](https://github.com/user-attachments/assets/4e7e03b7-7f82-4d5f-95cd-f22d02880cb0)
+
 Above is an image that illustrates the difference between underdamped and overdamped systems.
 
 `Main Drive Power` is a scalar for the main drive. So if you set `Main Drive Power` to 0.5, then the main drive will only thrust at half power (the thrust signal going into the main drive gets multiplied by the `Main Drive Power`).
