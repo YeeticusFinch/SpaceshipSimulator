@@ -22,6 +22,8 @@ You can also select ships for teammates and enemies, if you want to get a spaces
 
 ![Screenshot 2024-09-24 170340](https://github.com/user-attachments/assets/85862698-7546-4e09-8005-23cae80a689c)
 
+If you can't tell from the images, this game was largely inspired from the Expanse series. I was reading Nemesis Games (book 5) and I had gotten to the scene where Naomi was stuck on the Chetzemoka, but she managed to turn on a maneuvering thruster, causing the ship to tumble into a spiral. I had difficulty imagining it, so I made it in Unity. And then scope creep kinda turned that projet into a game.
+
 ## Controls
 
 ### Keyboard Controls
