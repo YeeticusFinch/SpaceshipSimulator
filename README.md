@@ -40,9 +40,9 @@ Middle-Click - Pan the camera
 
 Scroll Wheel - Zooms the camera
 
-### Panels
+## Panels
 
-#### Movement
+### Movement
 
 ![Screenshot 2024-09-24 165810](https://github.com/user-attachments/assets/062c1d46-3d1c-4f58-85c1-0f6a42b9c48e)
 
