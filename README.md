@@ -1,5 +1,7 @@
 # Carl's Fancy Spaceship Simulator
 
+![Screenshot 2024-04-23 090649](https://github.com/user-attachments/assets/d0bb90a7-6698-4941-93ac-3854c49f2f2d)
+
 ## Getting started
 
 Download the zip file from "releases".
@@ -10,11 +12,15 @@ Unzip the file, and run `SpaceshipSimulator.exe`
 
 ## Playing the game
 
+![Screenshot 2024-09-29 211607](https://github.com/user-attachments/assets/269b2f05-95c7-4c51-a36a-1b6676245f2c)
+
 You can select which map you want to play, some of them have gravity and an atmosphere, and some of them don't.
 
 The `race` maps will have goals for you to complete in a certain amount of time. The goals are either flying through a ring or shooting a ball.
 
 You can also select ships for teammates and enemies, if you want to get a spaceship battle going.
+
+![Screenshot 2024-09-24 170340](https://github.com/user-attachments/assets/85862698-7546-4e09-8005-23cae80a689c)
 
 ## Controls
 
@@ -37,6 +43,8 @@ Scroll Wheel - Zooms the camera
 ### Panels
 
 #### Movement
+
+![Screenshot 2024-09-24 165810](https://github.com/user-attachments/assets/062c1d46-3d1c-4f58-85c1-0f6a42b9c48e)
 
 Controls most things related to movement and thrusters.
 
@@ -75,16 +83,19 @@ Currently, the only autopilot features enabled for player ships is `Flip and Bur
 Below are some position vs time graphs to show you the effects that Kp and Kd have on the ship's movement.
 
  ![image](https://github.com/user-attachments/assets/5410fcf7-0f37-40b0-b1e4-d4f41cd0764a)
- This is what overshoot looks like. As you can see, this system is underdamped. You can fix that by increasing Kd or decreasing Kp.
+ 
+ Pictured above is what overshoot looks like. As you can see, this system is underdamped. You can fix that by increasing Kd or decreasing Kp.
 
  ![image](https://github.com/user-attachments/assets/377b584a-359f-49f1-bbd8-dcdbb521e36d)
- If you have way too much overshoot, it could even look like this.
+ 
+ If you have way too much overshoot, it could even look like this (pictured above).
 
  ![image](https://github.com/user-attachments/assets/099d278e-59ff-4e24-b265-447d92e4e4b4)
- For reference, this is how you want it to look.
+ 
+ For reference, this is how you want it to look (pictured above).
 
 ![image](https://github.com/user-attachments/assets/4e7e03b7-7f82-4d5f-95cd-f22d02880cb0)
-Here's an image that illustrates the difference between underdamped and overdamped systems.
+Above is an image that illustrates the difference between underdamped and overdamped systems.
 
 `Main Drive Power` is a scalar for the main drive. So if you set `Main Drive Power` to 0.5, then the main drive will only thrust at half power (the thrust signal going into the main drive gets multiplied by the `Main Drive Power`).
 
@@ -103,9 +114,13 @@ Communication systems is yet to be implemented. This will include:
 
 ### Weapons
 
+![Screenshot 2024-09-30 182435](https://github.com/user-attachments/assets/236cae91-1a5a-4174-877a-73e98f9017f3)
+
 Weapon systems, including turrets, missiles, and cannons.
 
 **Turrets**
+
+![Screenshot 2024-09-24 165715](https://github.com/user-attachments/assets/76412442-3b65-453f-b2ad-fe9cb8ef3ae3)
 
 Turrets can rotate, and some of them can even fold. 
 
@@ -127,6 +142,8 @@ When `Turret Aim Mode` is set to `Auto`, and the turret is aiming at a moving ta
 
 **Missiles**
 
+![Screenshot 2024-09-24 175915](https://github.com/user-attachments/assets/00551f4f-7522-420b-9bee-6bd77a3ee632)
+
 `Launch at Target` will give you a target lock (much like the turret target lock feature), and as soon as you click on the target, it will fire a missile.
 
 When a missile launches, it starts by moving a safe distance away from the spaceship, then aiming itself towards the target, then it begins accelerating.
@@ -142,6 +159,8 @@ If the missile is launched from a missile gun, it will skip those aforementioned
 `Next` / `Previous` will cycle between missile launchers. Each missile launcher can launch one type of missile.
 
 **Cannons**
+
+![Screenshot 2024-10-02 155319](https://github.com/user-attachments/assets/f8437b44-a4f3-4d0f-943d-a48a6337d03f)
 
 Cannons are similar to turrets, except a lot simpler, because they don't move. They are completely stationary, which means you need to aim them by turning your ship. Most cannons will be forward-facing.
 
