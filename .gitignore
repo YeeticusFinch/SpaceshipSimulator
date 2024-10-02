@@ -1,0 +1,52 @@
+*.meta
+*.fbx
+*.zip
+*.log
+*.mat
+*.raw
+*.asset
+*.unity
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Resources/SFX/
+Assets/_Bad_Raccoon/
+Assets/Day-Night Skyboxes/
+Assets/Marcos Schultz
+Assets/DinV/
+Assets/TextMesh Pro
+Assets/Scenes/
+Assets/Models/
+Packages/
+Library/
+.vs/
+Logs/
+obj/
+dist/
+.vs/
+Packages/
+Profiling/
+ProjectSettings/
+Recordings/
+UserSettings/
+.vsconfig
+*.csproj
+*.sln
+*.prefab
+*.mat
+*.prefab.meta
+*.png
+*.jpg
+*.jpeg
+Assets/Maps/
+Assets/MilkyWay/
+Assets/MKGlowFree/
+Assets/Models/
+Assets/Panels/
+Assets/Scenes/
+Assets/Resources/
+Cool Screenshots/
