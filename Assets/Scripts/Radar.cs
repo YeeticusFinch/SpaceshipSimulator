@@ -44,7 +44,7 @@ public class Radar : ShipObject
         if (oShip != null)
         {
             if (oShip.electricNoise > 20)
-                boost *= 1 + (oShip.electricNoise - 20) * 0.15f;
+                boost *= 1 + (oShip.electricNoise * Random.Range(0.8f, 1.2f) - 20) * 0.15f;
             else
             {
                 boost *= 1 - (20 - oShip.electricNoise) / 19f;
@@ -52,7 +52,7 @@ public class Radar : ShipObject
             if (oShip.radarOn)
                 boost *= 1.5f;
             if (oShip.mainDrive.Thrusting())
-                boost *= 1 + oShip.mainDrive.thrustAmount;
+                boost *= 1 + oShip.mainDrive.thrustAmount * Random.Range(2, 4);
         }
 
         Vector3 rayDirection = obj.transform.position - point.transform.position;

@@ -7,6 +7,7 @@ public class gun : ShipObject
 {
     public bool foldable = false;
     public float electricNoise = 2;
+    public float shootNoise = 0.5f;
     public float batteryConsumption = 0.1f;
 
     [NonSerialized]
@@ -610,7 +611,8 @@ public class gun : ShipObject
 
     Vector3 GetMovingTargetPos(GameObject target)
     {
-
+        if (hitscan)
+            return target.transform.position;
         Vector3 targetVel = Vector3.zero;
         Vector3 targetAcc = Vector3.zero;
         if (target.GetComponent<Rigidbody>() != null)
@@ -661,6 +663,12 @@ public class gun : ShipObject
     {
         //Debug.Log("Firing Bullet");
         if (this.bullet == null) return;
+
+        if (ship != null)
+        {
+            ship.electricNoise += shootNoise;
+        }
+
         if (!reactor.power) reactor.batteryAmount -= batteryConsumption * 5;
         if (playSounds)
         {
