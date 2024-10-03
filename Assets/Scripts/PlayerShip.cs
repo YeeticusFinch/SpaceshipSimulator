@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlayerShip : MonoBehaviour
 {
@@ -18,6 +19,7 @@ public class PlayerShip : MonoBehaviour
     int camIndex = 0;
     bool thirdPerson = false;
     bool turretMode = false;
+    bool cannonMode = false;
     [NonSerialized]
     public bool missileCam = false;
     [NonSerialized]
@@ -128,10 +130,10 @@ public class PlayerShip : MonoBehaviour
         if (targetLocker != null)
             Destroy(targetLocker);
         targetLocking = true;
-        targetLocker = Instantiate(circle, cam.transform);
-        targetLocker.GetComponent<SpriteRenderer>().color = Color.red;
-        targetLocker.GetComponentInChildren<TextMeshPro>().text = "Click on Target";
-        targetLocker.GetComponentInChildren<TextMeshPro>().color = Color.red;
+        targetLocker = Instantiate(circle, canvas.transform);
+        targetLocker.GetComponent<Image>().color = Color.red;
+        targetLocker.GetComponentInChildren<TextMeshProUGUI>().text = "Click on Target";
+        targetLocker.GetComponentInChildren<TextMeshProUGUI>().color = Color.red;
         targetWeaponIndex = weaponIndex;
         targetWeaponType = weaponType;
     }
@@ -147,6 +149,8 @@ public class PlayerShip : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        //if (Application.isEditor && Input.GetKey(KeyCode.X))
+        //    UnityEditor.EditorApplication.isPaused = true;
         if (missile != null)
         {
             if (Input.GetMouseButton(1))
@@ -242,9 +246,10 @@ public class PlayerShip : MonoBehaviour
         {
             if (targetLocking && targetLocker != null)
             {
-                Vector3 mousePos = Input.mousePosition;
-                mousePos.z = 1;
-                targetLocker.transform.localPosition = cam.transform.InverseTransformPoint(cam.ScreenToWorldPoint(mousePos)).normalized * canvas.planeDistance;
+                Vector2 mousePos = Input.mousePosition;
+                //mousePos.z = 1;
+                //targetLocker.transform.localPosition = cam.transform.InverseTransformPoint(cam.ScreenToWorldPoint(mousePos)).normalized * canvas.planeDistance;
+                targetLocker.GetComponent<RectTransform>().anchoredPosition = mousePos - canvas.GetComponent<RectTransform>().sizeDelta / 2f;
             }
             if (lockControls)
             {
@@ -270,7 +275,21 @@ public class PlayerShip : MonoBehaviour
                 }
                 else if (turretMode)
                 {
-                    ship.activeTurret.turretRotTarget += (Mathf.Clamp(sensitivity * Input.GetAxis("Mouse X"), -ship.activeTurret.rotSpeed, ship.activeTurret.rotSpeed) * Vector3.forward) + (Mathf.Clamp(sensitivity * Input.GetAxis("Mouse Y"), -ship.activeTurret.rotSpeed, ship.activeTurret.rotSpeed) * Vector3.right);
+                    Debug.Log("Rotate turret " + (Mathf.Clamp(sensitivity * Input.GetAxis("Mouse X"), -ship.activeGun.rotSpeed, ship.activeGun.rotSpeed) * Vector3.forward) + (Mathf.Clamp(sensitivity * Input.GetAxis("Mouse Y"), -ship.activeGun.rotSpeed, ship.activeGun.rotSpeed) * Vector3.right));
+                    ship.activeGun.turretRotTarget += (Mathf.Clamp(sensitivity * Input.GetAxis("Mouse X"), -ship.activeGun.rotSpeed, ship.activeGun.rotSpeed) * Vector3.forward) + (Mathf.Clamp(sensitivity * Input.GetAxis("Mouse Y"), -ship.activeGun.rotSpeed, ship.activeGun.rotSpeed) * Vector3.right);
+                } else if (cannonMode)
+                {
+                    //float rotSpeed = 50;
+                    //Debug.Log("Rotating ship " + (Mathf.Clamp(sensitivity * Input.GetAxis("Mouse X"), -ship.activeGun.rotSpeed, ship.activeGun.rotSpeed) * Vector3.forward) + (Mathf.Clamp(sensitivity * Input.GetAxis("Mouse Y"), -ship.activeGun.rotSpeed, ship.activeGun.rotSpeed) * Vector3.right));
+                    ship.activeGun.rotateGun += (sensitivity * Input.GetAxis("Mouse X") * Vector3.forward) + (sensitivity * Input.GetAxis("Mouse Y") * Vector3.right);
+                    ship.activeGun.rotateShip = true;
+                }
+            } else
+            {
+                if (cannonMode)
+                {
+                    ship.activeGun.rotateGun = Vector3.zero;
+                    ship.activeGun.rotateShip = false;
                 }
             }
             if (Input.GetMouseButton(2))
@@ -293,21 +312,28 @@ public class PlayerShip : MonoBehaviour
             {
                 if (targetLocking && targetLocker != null)
                 {
+                    Debug.Log("TargetLockClick");
                     Indicator closestTarget = null;
                     foreach (Indicator o in GameObject.FindObjectsOfType(typeof(Indicator)))
                     {
-                        if (o != targetLocker && o.GetComponentInChildren<TextMeshPro>().text != targetLocker.GetComponentInChildren<TextMeshPro>().text)
+                        if (o != targetLocker && o.GetComponentInChildren<TextMeshProUGUI>().text != targetLocker.GetComponentInChildren<TextMeshProUGUI>().text)
                         {
                             if (closestTarget == null)
                                 closestTarget = o;
-                            else if (Vector3.Distance(o.transform.localPosition, targetLocker.transform.localPosition) < Vector3.Distance(closestTarget.transform.localPosition, targetLocker.transform.localPosition))
+                            else if (Vector3.Distance(o.GetComponent<RectTransform>().anchoredPosition, targetLocker.GetComponent<RectTransform>().anchoredPosition) < Vector3.Distance(closestTarget.GetComponent<RectTransform>().anchoredPosition, targetLocker.GetComponent<RectTransform>().anchoredPosition))
                             {
                                 closestTarget = o;
                             }
+                            Debug.Log("Closest Target = " + o.gameObject.name);
                         }
                     }
 
-                    if (Vector3.Distance(closestTarget.transform.localPosition, targetLocker.transform.localPosition) < 1.15f)
+                    float distance = Vector2.Distance(closestTarget.GetComponent<RectTransform>().anchoredPosition, targetLocker.GetComponent<RectTransform>().anchoredPosition);
+
+                    Debug.Log("Distance = " + distance);
+
+                    //if (distance < 1.15f)
+                    if (distance < 30)
                     {
                         Destroy(targetLocker);
                         targetLocking = false;
@@ -322,9 +348,9 @@ public class PlayerShip : MonoBehaviour
                     Vector3 panelPos = (Vector3)panels[0].gameObject.GetComponent<RectTransform>().rect.position + Vector3.right * Screen.width;
                     if (Input.mousePosition.x / canvas.scaleFactor < panelPos.x && Input.mousePosition.y / canvas.scaleFactor > 60 && Input.mousePosition.y / canvas.scaleFactor < Screen.height / canvas.scaleFactor - 60)
                     {
-                        if (turretMode)
+                        if (turretMode || cannonMode)
                         {
-                            ship.activeTurret.Shoot();
+                            ship.activeGun.Shoot();
                         }
                         else
                         {
@@ -358,14 +384,31 @@ public class PlayerShip : MonoBehaviour
 
     public void ToggleTurretCamera(int turretNumber)
     {
+        if (!thirdPerson)
+            Toggle3rdPersonCamera();
         if (thirdPerson)
         {
             Debug.Log("Accessing camera for turret #" + turretNumber);
             thirdPerson = false;
             cam.transform.parent = ship.turrets[turretNumber].cam.transform;
             cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-            ship.activeTurret = ship.turrets[turretNumber];
+            ship.activeGun = ship.turrets[turretNumber];
             turretMode = true;
+        }
+    }
+
+    public void ToggleCannonCamera(int cannonNumber)
+    {
+        if (!thirdPerson)
+            Toggle3rdPersonCamera();
+        if (thirdPerson)
+        {
+            Debug.Log("Accessing camera for cannon #" + cannonNumber);
+            thirdPerson = false;
+            cam.transform.parent = ship.statGuns[cannonNumber].cam.transform;
+            cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            ship.activeGun = ship.statGuns[cannonNumber];
+            cannonMode = true;
         }
     }
 
@@ -380,8 +423,14 @@ public class PlayerShip : MonoBehaviour
         {
             if (turretMode)
             {
-                ship.activeTurret = null;
+                ship.activeGun = null;
                 turretMode = false;
+            }
+            if (cannonMode)
+            {
+                ship.activeGun.rotateShip = false;
+                ship.activeGun = null;
+                cannonMode = false;
             }
             thirdPerson = true;
             cam.transform.parent = ship.thirdPersonCamera.transform;
@@ -393,8 +442,14 @@ public class PlayerShip : MonoBehaviour
     {
         if (turretMode)
         {
-            ship.activeTurret = null;
+            ship.activeGun = null;
             turretMode = false;
+        }
+        if (cannonMode)
+        {
+            ship.activeGun.rotateShip = false;
+            ship.activeGun = null;
+            cannonMode = false;
         }
         camIndex++;
         camIndex %= ship.cameras.Length;

@@ -78,7 +78,7 @@ public class Spectator : MonoBehaviour
             thirdPerson = false;
             cam.transform.parent = ship.turrets[turretNumber].cam.transform;
             cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-            ship.activeTurret = ship.turrets[turretNumber];
+            ship.activeGun = ship.turrets[turretNumber];
             turretMode = true;
         }
     }
@@ -95,7 +95,7 @@ public class Spectator : MonoBehaviour
         {
             if (turretMode)
             {
-                ship.activeTurret = null;
+                ship.activeGun = null;
                 turretMode = false;
             }
             thirdPerson = true;
@@ -108,7 +108,7 @@ public class Spectator : MonoBehaviour
     {
         if (turretMode)
         {
-            ship.activeTurret = null;
+            ship.activeGun = null;
             turretMode = false;
         }
         camIndex++;

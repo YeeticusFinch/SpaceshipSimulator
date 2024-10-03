@@ -207,12 +207,30 @@ public class NpcShip : MonoBehaviour
                         g.fold = false;
                 }
             }
-            foreach (SpaceShip s in GameObject.FindObjectsOfType(typeof(SpaceShip)))
+            if (c % 10 == 0)
             {
-                if (s != null && ship.isEnemy(s))
+                SpaceShip closestEnemyShip = null;
+                foreach (SpaceShip s in GameObject.FindObjectsOfType(typeof(SpaceShip)))
                 {
-                    if (targetShip == null || Vector3.Distance(ship.rb.position, s.rb.position) < Vector3.Distance(ship.rb.position, targetShip.rb.position))
-                        targetShip = s;
+                    if (s != null && ship.isEnemy(s))
+                    {
+                        if (targetShip == null || closestEnemyShip == null || Vector3.Distance(ship.rb.position, s.rb.position) < Vector3.Distance(ship.rb.position, closestEnemyShip.rb.position))
+                        {
+                            closestEnemyShip = s;
+                            if (ship.CanSee(s))
+                                targetShip = s;
+                        }
+                    }
+                }
+
+                //Debug.Log("Closest Ship = " + closestEnemyShip);
+
+                if (targetShip == null && closestEnemyShip != null && (targetPos.magnitude == 0 || Vector3.Distance(targetPos, ship.rb.position) < 5 || Random.Range(0, 100) > 98))
+                {
+                    if (Vector3.Distance(ship.rb.position, closestEnemyShip.rb.position) > followRange * 5)
+                    {
+                        targetPos = closestEnemyShip.rb.position + 5 * followRange * (new Vector3(Random.Range(-1, 1), Random.Range(-1, 1), Random.Range(-1, 1)));
+                    }
                 }
             }
         }
@@ -243,6 +261,9 @@ public class NpcShip : MonoBehaviour
             }
         }
         ship.velRef = targetVel;
+
+        //Debug.Log("TargetShip = " + targetShip);
+        //Debug.Log("Pos = " + ship.rb.position + ", TargetPos = " + targetPos);
         //String str = "";
         //if (Vector3.Magnitude(ship.velRef - ship.rb.velocity) > relVelTol)
         /*if (Vector3.Magnitude(Yeet.Perp(ship.rb.velocity, targetVel)) > relVelTol || Vector3.Magnitude(ship.velRef - ship.rb.velocity) > maxSpeedDiff)
@@ -260,6 +281,8 @@ public class NpcShip : MonoBehaviour
         {*/
             //str += "[ship:" + ship.rb.velocity + ", target:" + targetVel + "] ";
             ship.flip_n_burn = false;
+        if (targetPos != Vector3.zero)
+        {
             if (ship != null && ship.rb != null && Vector3.Distance(targetPos, ship.rb.position) > posTol)
             {
                 ship.goToPoint = targetPos;
@@ -268,6 +291,7 @@ public class NpcShip : MonoBehaviour
             }
             else
             {
+                targetPos = Vector3.zero;
                 ship.goToPoint = Vector3.zero;
                 //str += "Stopped getting closer, ";
                 if (Vector3.Magnitude(ship.velRef - ship.rb.velocity) > relVelTol)
@@ -277,6 +301,7 @@ public class NpcShip : MonoBehaviour
                     //str += "[Matching course]";
                 }
             }
+        }
         //}
         //Debug.Log(str);
     }

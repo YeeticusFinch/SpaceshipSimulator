@@ -93,6 +93,9 @@ public class gun : ShipObject
     public SoundManager.Sound unfoldSound;
     public SoundManager.Sound impactSount;
 
+    [NonSerialized]
+    public Vector3 rotateGun = Vector3.zero;
+
     float lastFired = 0;
 
     float speedMult = 1;
@@ -106,6 +109,9 @@ public class gun : ShipObject
 
     [NonSerialized]
     Vector3 ogCamRot;
+
+    [NonSerialized]
+    public bool rotateShip = false;
     // Start is called before the first frame update
     int maxFoldIndex = 1;
     new void Start()
@@ -251,10 +257,37 @@ public class gun : ShipObject
                 }
             }
 
-            if (aimMode == 0 && targetLock != null && !stationary)
+            //Debug.Log("Yeet")
+;           if (rotateGun.magnitude > 0 && stationary && rotateShip)
             {
-                if (!reactor.power) reactor.batteryAmount -= batteryConsumption;
-                AimAt(targetLock, fireMode == 0);
+                //turretRotTarget = FixAngle(turretRotTarget);
+                rotateGun = FixAngle(rotateGun);
+
+                Debug.Log("Rotate Gun " + rotateGun);
+
+                if (rotateGun.z > 0)
+                    ship.FireThrusters(ship.d_thrusters, rotateGun.z);
+                else if (rotateGun.z < 0)
+                    ship.FireThrusters(ship.a_thrusters, -rotateGun.z);
+
+                if (rotateGun.x > 0)
+                    ship.FireThrusters(ship.s_thrusters, rotateGun.x);
+                else if (rotateGun.x < 0)
+                    ship.FireThrusters(ship.w_thrusters, -rotateGun.x);
+            }
+
+            if (aimMode == 0 && targetLock != null && ship.activeGun != this)
+            {
+                if (!stationary)
+                {
+                    if (!reactor.power) reactor.batteryAmount -= batteryConsumption;
+                    AimAt(targetLock, fireMode == 0);
+                } else if (stationary)
+                {
+                    //if (rotateShip)
+                    //    ship.TurnToPoint((targetLock.transform.position - ship.transform.position).normalized, ship.transform.InverseTransformDirection(ship.rb.angularVelocity));
+                    ShootIfAimingAtTarget(hitscan ? targetLock.transform.position : GetMovingTargetPos(targetLock), 5);
+                }
             }
 
             if (shooting && (stationary || (!cancelShoot && !willHitShip)))

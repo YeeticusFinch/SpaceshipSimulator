@@ -278,6 +278,15 @@ public class Panel : MonoBehaviour
                     player.ToggleTurretCamera(currentIndex);
                 }
                 break;
+            case "cannon_camera":
+                if (!locked)
+                {
+                    int currentIndex = -this.id - 2;
+                    if (this.id == -1)
+                        currentIndex = 0;
+                    player.ToggleCannonCamera(currentIndex);
+                }
+                break;
             case "turret_fold":
                 if (!locked)
                 {
@@ -704,6 +713,10 @@ public class Panel : MonoBehaviour
             else if (t.text.Contains("Low Power:"))
             {
                 t.text = "Low Power: " + (player.ship.reactor.lowPower ? "ON" : "OFF");
+            }
+            else if (t.text.Contains("Batteries:"))
+            {
+                t.text = "Batteries: " + (player.ship.reactor.batteryPower ? "ON" : "OFF");
             }
             else if (t.text.Contains("Fire Turrets:"))
             {

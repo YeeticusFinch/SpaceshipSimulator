@@ -45,6 +45,13 @@ public class SpaceObject : MonoBehaviour
     protected void OnCollisionEnter(Collision collision)
     {
         ShipObject o = collision.collider.GetComponentInParent<ShipObject>();
+        /*SpaceShip oShip = collision.collider.GetComponentInParent<SpaceShip>();
+        Missile thisM = GetComponent<Missile>();
+        if (thisM == null)
+            thisM = GetComponentInParent<Missile>();
+        if (thisM.armed || (thisM != null && oShip != null && thisM.owner == oShip))
+            return;
+            */
         if (o != null)
         {
             float mass = o.rb != null ? o.rb.mass : 10;

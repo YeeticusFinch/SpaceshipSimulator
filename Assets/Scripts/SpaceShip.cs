@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using Random = UnityEngine.Random;
 
 public class SpaceShip : SpaceObject
@@ -18,7 +19,7 @@ public class SpaceShip : SpaceObject
     public float defaultAngleTol;
     public float defaultPointToKp;
     public float defaultPointToKd;
-    [NonSerialized]
+    //[NonSerialized]
     public int team = 0;
 
     public MomentumWheelAssembly momentumWheels;
@@ -86,7 +87,7 @@ public class SpaceShip : SpaceObject
     public bool targetted = false;
 
     [NonSerialized]
-    public gun activeTurret = null;
+    public gun activeGun = null;
 
     [NonSerialized]
     public bool overrideW = false;
@@ -410,7 +411,7 @@ public class SpaceShip : SpaceObject
                 {
                     foreach (Radar r in radars)
                     {
-                        if (r != null)
+                        if (r != null && r.enabled && r.gameObject.activeSelf)
                             electricNoise += r.electricNoise;
                     }
                 }
@@ -532,7 +533,7 @@ public class SpaceShip : SpaceObject
                             {
                                 if (circles[i].GetComponent<Indicator>().target == o.gameObject)
                                 {
-                                    Debug.Log("A");
+                                    //Debug.Log("A");
                                     Destroy(circles[i]);
                                 }
                             }
@@ -550,13 +551,13 @@ public class SpaceShip : SpaceObject
                             {
                                 if (!hasCircle.Contains(o.gameObject))
                                 {
-                                    GameObject temp = Instantiate(player.circle, player.cam.transform);
+                                    GameObject temp = Instantiate(player.circle, player.canvas.transform);
                                     temp.transform.localEulerAngles = Vector3.zero;
-                                    temp.GetComponent<Indicator>().cam = player.cam.gameObject;
+                                    temp.GetComponent<Indicator>().cam = player.cam;
                                     temp.GetComponent<Indicator>().target = o.gameObject;
                                     temp.GetComponent<Indicator>().dist = player.canvas.planeDistance;
                                     temp.GetComponent<Indicator>().trackObject = true;
-                                    temp.GetComponentInChildren<TextMeshPro>().text = o.name;
+                                    temp.GetComponentInChildren<TextMeshProUGUI>().text = o.name;
                                     temp.tag = "UI Circle";
                                 } else
                                 {
@@ -572,8 +573,8 @@ public class SpaceShip : SpaceObject
                                             }
                                             foundCircle = true;
                                             circles[i].GetComponent<Indicator>().guess = false;
-                                            circles[i].GetComponent<SpriteRenderer>().color = Color.white;
-                                            circles[i].GetComponentInChildren<TextMeshPro>().color = Color.white;
+                                            circles[i].GetComponent<Image>().color = Color.white;
+                                            circles[i].GetComponentInChildren<TextMeshProUGUI>().color = Color.white;
 
                                         }
                                     }
@@ -669,8 +670,8 @@ public class SpaceShip : SpaceObject
                                 }
                                 foundCircle = true;
                                 circles[i].GetComponent<Indicator>().guess = true;
-                                circles[i].GetComponent<SpriteRenderer>().color = Color.yellow;
-                                circles[i].GetComponentInChildren<TextMeshPro>().color = Color.yellow;
+                                circles[i].GetComponent<Image>().color = Color.yellow;
+                                circles[i].GetComponentInChildren<TextMeshProUGUI>().color = Color.yellow;
                                 circles[i].GetComponent<Indicator>().guessPos = o.gameObject.transform.position;
                                 if (o.gameObject.GetComponent<Rigidbody>() != null)
                                 {
@@ -1073,6 +1074,30 @@ public class SpaceShip : SpaceObject
         return result;
     }
 
+    public bool CanSee(SpaceObject e)
+    {
+        foreach (Radar r in radars)
+        {
+            if (r != null && r.enabled && r.gameObject.activeSelf && r.RadarObject(e.gameObject, playerShip && player.traceRadar))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public bool CanTarget(SpaceObject e)
+    {
+        foreach (Targeter r in targeters)
+        {
+            if (r != null && r.enabled && r.gameObject.activeSelf && r.TargetObject(e.gameObject, playerShip && player.traceRadar))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void Target(GameObject o, int weaponIndex, int weaponType) // weaponType 0 == turret, 1 == missile, 2 == cannon
     {
         if (reactor.telemetryPower)
@@ -1128,30 +1153,30 @@ public class SpaceShip : SpaceObject
 
     GameObject MakeUITarget(GameObject targetObject)
     {
-        GameObject temp = Instantiate(player.circle, player.cam.transform);
-        temp.GetComponent<SpriteRenderer>().color = Color.red;
-        temp.GetComponent<SpriteRenderer>().sprite = player.targetSprite;
+        GameObject temp = Instantiate(player.circle, player.canvas.transform);
+        temp.GetComponent<Image>().color = Color.red;
+        temp.GetComponent<Image>().sprite = player.targetSprite;
         temp.transform.localEulerAngles = Vector3.zero;
-        temp.GetComponent<Indicator>().cam = player.cam.gameObject;
+        temp.GetComponent<Indicator>().cam = player.cam;
         temp.GetComponent<Indicator>().target = targetObject.gameObject;
         temp.GetComponent<Indicator>().dist = player.canvas.planeDistance;
         temp.GetComponent<Indicator>().trackObject = true;
-        temp.GetComponentInChildren<TextMeshPro>().text = targetObject.GetComponent<SpaceObject>().name;
-        temp.GetComponentInChildren<TextMeshPro>().color = Color.red;
+        temp.GetComponentInChildren<TextMeshProUGUI>().text = targetObject.GetComponent<SpaceObject>().name;
+        temp.GetComponentInChildren<TextMeshProUGUI>().color = Color.red;
         temp.tag = "UI Target";
         return temp;
     }
 
     GameObject MakeLostUITarget(GameObject targetObject, Vector3 lastPos, Vector3 lastVel)
     {
-        GameObject temp = Instantiate(player.circle, player.cam.transform);
-        SpriteRenderer sr = temp.GetComponent<SpriteRenderer>();
+        GameObject temp = Instantiate(player.circle, player.canvas.transform);
+        Image sr = temp.GetComponent<Image>();
         Indicator indi = temp.GetComponent<Indicator>();
-        TextMeshPro tmp = temp.GetComponentInChildren<TextMeshPro>();
+        TextMeshProUGUI tmp = temp.GetComponentInChildren<TextMeshProUGUI>();
         sr.color = Color.yellow;
         sr.sprite = player.targetSprite;
         temp.transform.localEulerAngles = Vector3.zero;
-        indi.cam = player.cam.gameObject;
+        indi.cam = player.cam;
         indi.target = targetObject.gameObject;
         indi.dist = player.canvas.planeDistance;
         indi.trackObject = true;
@@ -1171,9 +1196,9 @@ public class SpaceShip : SpaceObject
 
     void ConvertTargetLockIndicatorStatus(GameObject indiObj, bool status, Vector3 lastPos, Vector3 lastVel)
     {
-        SpriteRenderer sr = indiObj.GetComponent<SpriteRenderer>();
+        Image sr = indiObj.GetComponent<Image>();
         Indicator indi = indiObj.GetComponent<Indicator>();
-        TextMeshPro tmp = indiObj.GetComponentInChildren<TextMeshPro>();
+        TextMeshProUGUI tmp = indiObj.GetComponentInChildren<TextMeshProUGUI>();
         if (status)
         {
             sr.color = Color.red;
@@ -1262,6 +1287,8 @@ public class SpaceShip : SpaceObject
 
     public bool isEnemy(SpaceShip o)
     {
+        if (o == this)
+            return false;
         switch (team)
         {
             case 0:

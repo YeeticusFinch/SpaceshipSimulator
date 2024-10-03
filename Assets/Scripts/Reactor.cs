@@ -82,7 +82,7 @@ public class Reactor : ShipObject
             weaponPower = false;
             commsPower = false;
             telemetryPower = false;
-            batteryAmount = 0;
+            //batteryAmount = 0;
         }
         if (batteryAmount <= 0.001f && batteryPower) batteryPower = false;
     }
@@ -135,6 +135,19 @@ public class Reactor : ShipObject
             exploded = true;
             StartCoroutine(ExplodeCore());
         }
+    }
+
+
+    public Yeet.Dmg Damage(Yeet.Dmg dmg, Vector3 pos, float decay = 1)
+    {
+        reactorStability -= dmg.fire * 0.2f + dmg.lightning + dmg.GetCombinedDamage() * 0.1f;
+        return base.Damage(dmg, pos, decay);
+    }
+
+    public Yeet.Dmg Damage(Yeet.Dmg dmg, float factor, Vector3 pos, float decay = 1)
+    {
+        reactorStability -= factor * (dmg.fire * 0.2f + dmg.lightning + dmg.GetCombinedDamage() * 0.1f);
+        return base.Damage(dmg, pos, decay);
     }
 
     IEnumerator ExplodeCore()

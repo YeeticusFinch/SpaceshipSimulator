@@ -99,12 +99,19 @@ public class Missile : SpaceObject
     float speedTol = 5;
     float angleTol = 2;
 
+    public int grace = 5;
+
     // Start is called before the first frame update
     void Start()
     {
         base.Start();
         //rb = GetComponent<Rigidbody>();
         camOrbit.transform.parent = null;
+
+        foreach (Collider col in GetComponentsInChildren<Collider>())
+        {
+            col.enabled = false;
+        }
     }
 
     public void Explode()
@@ -139,6 +146,17 @@ public class Missile : SpaceObject
             camOrbit.transform.position = rb.position + camTrans;
         }
 
+        if (c % 10 == 0)
+        {
+            if (grace > -1) grace--;
+            if (grace == 0)
+            {
+                foreach (Collider col in GetComponentsInChildren<Collider>())
+                {
+                    col.enabled = true;
+                }
+            }
+        }
         if (Game.instance.playbackRecording)
             return;
 
@@ -266,7 +284,7 @@ public class Missile : SpaceObject
 
     private void OnCollisionEnter(Collision collision)
     {
-        if (collision.collider.GetComponentInParent<SpaceShip>() != null && collision.collider.GetComponentInParent<SpaceShip>() == owner)
+        if ((collision.collider.GetComponentInParent<SpaceShip>() != null && collision.collider.GetComponentInParent<SpaceShip>() == owner) || Vector3.Distance(owner.rb.position, rb.position) < explodeRange)
             return;
         else if (armed)
         {

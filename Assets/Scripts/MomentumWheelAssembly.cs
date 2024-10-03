@@ -50,7 +50,7 @@ public class MomentumWheelAssembly : ShipObject
             foreach (MomentumWheel wheel in wheels)
             {
                 float amount = Vector3.Dot(ship.transform.InverseTransformDirection(wheel.transform.TransformDirection(wheel.axis)), targetTorque);
-                Debug.Log(wheel.gameObject.name + " dot product = " + amount);
+                //Debug.Log(wheel.gameObject.name + " dot product = " + amount);
                 actualTorque += wheel.accelerate(amount) * wheel.axis;
             }
 

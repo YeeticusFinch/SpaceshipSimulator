@@ -84,6 +84,7 @@ public class Particle : MonoBehaviour
     {
         List<Collider> result = colliders == null ? new List<Collider>() : colliders;
         float range = hb.range - hb.offset;
+        if (this == null || this.gameObject == null || transform == null) return result;
         Vector3 pos = transform.position + transform.TransformDirection(hitscanDir) * hb.offset;
         Vector3 hitPos = transform.position;
 
@@ -156,7 +157,7 @@ public class Particle : MonoBehaviour
             if (rangeMult < 0.001f)
                 break;
         }
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(1.5f);
         if (this != null && this.gameObject != null)
             GameObject.Destroy(this.gameObject);
     }
@@ -176,7 +177,7 @@ public class Particle : MonoBehaviour
         lifetime = Mathf.Max(1, lifetime);
         transform.localScale *= 1 + Random.Range(-randSize, randSize);
         velocity *= 1 + Random.Range(-randSpeed, randSpeed);
-
+        
         //col = GetComponent<Collider>();
     }
 
@@ -210,7 +211,7 @@ public class Particle : MonoBehaviour
         }
     }
 
-    public float TriggerEnter(Collider other, int code, Vector3 point = new Vector3()) // code 0 is the regular collider, code 1 is the collider for missiles
+    public float TriggerEnter(Collider other, int code, Vector3 point = new Vector3()) // code 0 is the regular collider, code 1 is the collider for missiles, code 2 is stuff that shouldn't be destroyed in here (like hitscan)
     {
         if (point.magnitude < 0.0001f) point = transform.position;
         GameObject obj = other.gameObject;
@@ -288,15 +289,18 @@ public class Particle : MonoBehaviour
         }
         else
         {
-            /*GameObject dmgInd = Instantiate(Game.instance.DmgIndicator) as GameObject;
+            GameObject dmgInd = Instantiate(Game.instance.DmgIndicator) as GameObject;
             dmgInd.tag = "DamageIndicator";
             dmgInd.transform.position = point;
             dmgInd.transform.localScale *= dmg.GetCombinedDamage() * 2;
             dmgInd.name = "Dmg Indicator";
             //if (obj.GetComponent<Rigidbody>() != null)
             //    dmgInd.GetComponent<Particle>().velocity = obj.GetComponent<Rigidbody>().velocity;
-            GameObject.Destroy(this.gameObject);
-            */
+            if (code != 2)
+                GameObject.Destroy(this.gameObject);
+            else
+                return 0;
+            
         }
         return 1;
     }
