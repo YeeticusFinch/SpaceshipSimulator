@@ -312,7 +312,7 @@ public class PlayerShip : MonoBehaviour
             {
                 if (targetLocking && targetLocker != null)
                 {
-                    Debug.Log("TargetLockClick");
+                    //Debug.Log("TargetLockClick");
                     Indicator closestTarget = null;
                     foreach (Indicator o in GameObject.FindObjectsOfType(typeof(Indicator)))
                     {
@@ -324,13 +324,13 @@ public class PlayerShip : MonoBehaviour
                             {
                                 closestTarget = o;
                             }
-                            Debug.Log("Closest Target = " + o.gameObject.name);
+                            //Debug.Log("Closest Target = " + o.gameObject.name);
                         }
                     }
 
                     float distance = Vector2.Distance(closestTarget.GetComponent<RectTransform>().anchoredPosition, targetLocker.GetComponent<RectTransform>().anchoredPosition);
 
-                    Debug.Log("Distance = " + distance);
+                    //Debug.Log("Distance = " + distance);
 
                     //if (distance < 1.15f)
                     if (distance < 30)

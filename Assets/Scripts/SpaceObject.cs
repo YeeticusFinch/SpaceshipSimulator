@@ -55,12 +55,12 @@ public class SpaceObject : MonoBehaviour
         if (o != null)
         {
             float mass = o.rb != null ? o.rb.mass : 10;
-            float relVel = collision.relativeVelocity.magnitude * mass / 100;
+            float relVel = collision.relativeVelocity.magnitude * (0.6f + mass / 300);
             Vector3 pos = collision.contacts[0].point;
             Debug.Log("Collision with " + o.name + " at " + relVel);
             if (relVel > 1)
             {
-                Yeet.Dmg dmg = new Yeet.Dmg(0.05f * relVel, 4 * relVel, 0.01f * relVel, 1 * relVel, 0, 2 * relVel, 0);
+                Yeet.Dmg dmg = new Yeet.Dmg(0.05f * relVel, 4 * relVel, 0.01f * relVel, 0.3f * relVel, 0, 1 * relVel, 0);
                 o.Damage(dmg, pos, 1);
 
                 GameObject dmgInd = Instantiate(Game.instance.DmgIndicator) as GameObject;

@@ -284,14 +284,16 @@ public class Missile : SpaceObject
 
     private void OnCollisionEnter(Collision collision)
     {
-        if ((collision.collider.GetComponentInParent<SpaceShip>() != null && collision.collider.GetComponentInParent<SpaceShip>() == owner) || Vector3.Distance(owner.rb.position, rb.position) < explodeRange)
+        return;
+        if (collision.collider != null && ((collision.collider.GetComponentInParent<SpaceShip>() != null && collision.collider.GetComponentInParent<SpaceShip>() == owner)) || (owner.rb != null && rb != null && Vector3.Distance(owner.rb.position, rb.position) < explodeRange))
             return;
         else if (armed)
         {
             Explode();
         } else
         {
-            base.OnCollisionEnter(collision);
+            //base.OnCollisionEnter(collision);
+            return;
         }
     }
 

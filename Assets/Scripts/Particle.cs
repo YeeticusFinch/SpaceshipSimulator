@@ -6,7 +6,10 @@ using Random = UnityEngine.Random;
 
 public class Particle : MonoBehaviour
 {
-
+    public GameObject spawnExplosion;
+    public float explodeRange = 5;
+    [NonSerialized]
+    public GameObject actualTarget;
     public int lifetime = 20;
     public bool shrinking = true;
 
@@ -187,6 +190,8 @@ public class Particle : MonoBehaviour
     void FixedUpdate()
     {
         if (paused) return;
+        if (spawnExplosion != null && actualTarget != null && Vector3.Distance(transform.position, actualTarget.transform.position) < explodeRange)
+            DoExplosion(transform.position, velocity/2);
         c += 1;
         if (c == 3)
             ogVelocity = velocity;
@@ -208,6 +213,16 @@ public class Particle : MonoBehaviour
         {
             transform.position += velocity * Time.fixedDeltaTime;
             transform.localPosition += localVelocity * Time.fixedDeltaTime;
+        }
+    }
+
+    public void DoExplosion(Vector3 pos, Vector3 vel)
+    {
+        if (spawnExplosion != null)
+        {
+            GameObject o = GameObject.Instantiate(spawnExplosion);
+            o.transform.position = pos;
+            o.GetComponent<Particle>().velocity = vel;
         }
     }
 
@@ -243,6 +258,7 @@ public class Particle : MonoBehaviour
             {
                 //recap += dmg.GetCombinedDamage() + " dmg to " + shipObj.name + ", ";
                 dmg = shipObj.Damage(dmg, other.ClosestPoint(point), decay);
+                DoExplosion(point, shipObj.rb != null ? shipObj.rb.velocity : Vector3.zero);
                 //recap += "HP=" + Mathf.Round(shipObj.GetHP()) + "; ";
                 if (dmg.GetCombinedDamage() < 0.001f)
                 {
@@ -260,6 +276,7 @@ public class Particle : MonoBehaviour
         else if (obj.tag == "AlwaysTarget")
         {
             GameObject dmgInd = Instantiate(Game.instance.TargetDmgIndicator) as GameObject;
+            DoExplosion(point, Vector3.zero);
             dmgInd.tag = "DamageIndicator";
             dmgInd.transform.position = point;
             dmgInd.transform.localScale *= dmg.GetCombinedDamage() * 2;
@@ -273,6 +290,7 @@ public class Particle : MonoBehaviour
         } else if (obj.tag == "ShootTarget")
         {
             GameObject dmgInd = Instantiate(Game.instance.TargetDmgIndicator) as GameObject;
+            DoExplosion(point, Vector3.zero);
             dmgInd.tag = "DamageIndicator";
             dmgInd.transform.position = point;
             dmgInd.transform.localScale *= dmg.GetCombinedDamage() * 30;
@@ -286,10 +304,14 @@ public class Particle : MonoBehaviour
                 GameObject.Destroy(this.gameObject);
             else
                 return 0;
+        } else if (obj.tag == "Bullet")
+        {
+
         }
         else
         {
             GameObject dmgInd = Instantiate(Game.instance.DmgIndicator) as GameObject;
+            DoExplosion(point, Vector3.zero);
             dmgInd.tag = "DamageIndicator";
             dmgInd.transform.position = point;
             dmgInd.transform.localScale *= dmg.GetCombinedDamage() * 2;

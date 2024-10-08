@@ -245,6 +245,12 @@ public class Panel : MonoBehaviour
                     player.ship.stabalizers = !player.ship.stabalizers;
                 }
                 break;
+            case "stabalizer_brakes":
+                if (!locked)
+                {
+                    player.ship.autoBrakes = !player.ship.autoBrakes;
+                }
+                break;
             case "stabalizer_thrust":
                 if (!locked)
                 {
@@ -802,6 +808,10 @@ public class Panel : MonoBehaviour
             {
                 t.text = "Stabalizers: " + (player.ship.stabalizers ? "ON" : "OFF");
             }
+            else if (t.text.Contains("Automatic Brakes:"))
+            {
+                t.text = "Automatic Brakes: " + (player.ship.autoBrakes ? "ON" : "OFF");
+            }
             else if (t.text.Contains("Stabalizer Thrust:"))
             {
                 t.text = "Stabalizer Thrust: " + (player.ship.useStabalizersForMainThrust ? "ON" : "OFF");
@@ -1027,7 +1037,7 @@ public class Panel : MonoBehaviour
 
     public float GetUpdatedValue(string id)
     {
-        if (player == null || player.ship == null)
+        if (player == null || player.ship == null || player.ship.rb == null)
             return 0;
         switch (id)
         {

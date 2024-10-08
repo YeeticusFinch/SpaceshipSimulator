@@ -112,6 +112,9 @@ public class SpaceShip : SpaceObject
     public bool stabalizers = true;
 
     [NonSerialized]
+    public bool autoBrakes = false;
+
+    [NonSerialized]
     public float stabalizerPower = 0.8f;
 
     //[NonSerialized]
@@ -891,7 +894,7 @@ public class SpaceShip : SpaceObject
             }
             else
             {
-                if (stabalizers && relVel.y > speedTol && !IsThrusting(space_thrusters))
+                if (stabalizers && autoBrakes && relVel.y > speedTol && !IsThrusting(space_thrusters))
                 {
                     PID(relVel.y, speedTol, shift_thrusters, Kp, stabalizerPower);
                 }
@@ -902,7 +905,7 @@ public class SpaceShip : SpaceObject
             }
             else
             {
-                if (stabalizers && relVel.y < -speedTol && !IsThrusting(shift_thrusters))
+                if (stabalizers && autoBrakes && relVel.y < -speedTol && !IsThrusting(shift_thrusters))
                 {
                     if (useMainDriveForStabalization)
                         PID(relVel.y, -speedTol, space_thrusters, Kp, stabalizerPower);

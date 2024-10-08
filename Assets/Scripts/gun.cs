@@ -264,7 +264,7 @@ public class gun : ShipObject
                 //turretRotTarget = FixAngle(turretRotTarget);
                 rotateGun = FixAngle(rotateGun);
 
-                Debug.Log("Rotate Gun " + rotateGun);
+                //Debug.Log("Rotate Gun " + rotateGun);
 
                 if (rotateGun.z > 0)
                     ship.FireThrusters(ship.d_thrusters, rotateGun.z);
@@ -477,6 +477,58 @@ public class gun : ShipObject
                     }
                     break;
             }
+        } else if (turretType == 2)
+        {
+            bool c = true;/*
+            Debug.Log("FoldIndex = " + foldIndex);
+            Debug.Log("Folded = " + folded);
+            Debug.Log("Fold = " + fold);
+            Debug.Log("Dir = " + dir);*/
+            switch (foldIndex)
+            {
+                case 0: // Unfolded Position
+                    c = TranslateStep(movingParts[0], new Vector3(0, 0, 0.2721213f), 0.3f) && c;
+                    c = TranslateStep(movingParts[1], new Vector3(0, -0.212f, 0.111f), 0.3f) && c;
+                    //c = c && RotateStep(movingParts[2], new Vector3(-90, 0, 0), 5);
+                    c = RotateStep(movingParts[1], new Vector3(90, 0, 0), 5) && c;
+                    c = AimLocal((new Vector3(0, 0.5f, -2)).normalized * 1.41f, 76) && c;
+                    if (c)
+                    {
+                        folded = false;
+                        if (dir > 0)
+                        {
+                            foldIndex++;
+                            if (playSounds)
+                                unfoldSound.play(transform.position);
+                        }
+                    }
+                    break;
+                case 1: // Slide Doors upwardsand turret downwards
+                    c = TranslateStep(movingParts[0], new Vector3(0, 0, 0.0073f), 0.3f) && c;
+                    c = TranslateStep(movingParts[1], new Vector3(0, -0.323f, 0.306f), 0.3f) && c;
+                    //c = RotateStep(movingParts[1], new Vector3(-180, 0, 0), 5) && c;
+                    c = RotateStep(movingParts[1], new Vector3(0, 0, 0), 5) && c;
+                    c = AimLocal((new Vector3(0, 0.5f, -2)).normalized * 1.41f, 76) && c;
+                    if (c)
+                        foldIndex += dir;
+                    break;
+                case 2: // Close Doors
+                    c = TranslateStep(movingParts[0], new Vector3(0, 0, 0.0073f), 0.3f) && c;
+                    c = TranslateStep(movingParts[1], new Vector3(0, 0, 0.306f), 0.3f) && c;
+                    c = RotateStep(movingParts[1], new Vector3(0, 0, 0), 5) && c;
+                    c = AimLocal((new Vector3(0, 0.5f, -2)).normalized * 1.41f, 76) && c;
+                    if (c)
+                    {
+                        folded = true;
+                        if (dir < 0)
+                        {
+                            foldIndex--;
+                            if (playSounds)
+                                foldSound.play(transform.position);
+                        }
+                    }
+                    break;
+            }
         }
     }
 
@@ -577,7 +629,7 @@ public class gun : ShipObject
         turretRotTarget = new Vector3(x, 0, z);
 
         RotateTurretToTarget();
-
+        //Debug.Log(AimingAtTargetLocal(posLocal, tol));
         return AimingAtTargetLocal(posLocal, tol);
     }
 
@@ -617,11 +669,16 @@ public class gun : ShipObject
         Vector3 targetAcc = Vector3.zero;
         if (target.GetComponent<Rigidbody>() != null)
         {
-            targetVel = target.GetComponent<Rigidbody>().velocity;
-            if (targetVel.magnitude > Game.instance.maxMissileSpeed)
-                targetVel = targetVel.normalized * Game.instance.maxMissileSpeed;
-            if (targetVel.magnitude < Game.instance.maxMissileSpeed*0.95f)
-                targetAcc = target.GetComponent<Rigidbody>().GetAccumulatedForce() / target.GetComponent<Rigidbody>().mass;
+            if (target.GetComponent<Rigidbody>().isKinematic)
+                targetVel = Vector3.zero;
+            else
+            {
+                targetVel = target.GetComponent<Rigidbody>().velocity;
+                if (targetVel.magnitude > Game.instance.maxMissileSpeed)
+                    targetVel = targetVel.normalized * Game.instance.maxMissileSpeed;
+                if (targetVel.magnitude < Game.instance.maxMissileSpeed * 0.95f)
+                    targetAcc = target.GetComponent<Rigidbody>().GetAccumulatedForce() / target.GetComponent<Rigidbody>().mass;
+            }
         }
         Vector3 velDiff = targetVel - ship.rb.velocity;
         float time = hitscan ? Time.fixedDeltaTime : Vector3.Distance(target.transform.position, transform.position) / muzzleVelocity;
@@ -651,11 +708,13 @@ public class gun : ShipObject
     {
         Vector3 posLocal = barrel.transform.InverseTransformPoint(pos);
         //Debug.Log(Vector3.Angle(pos, barrel.transform.up));
+        //Debug.Log(Vector3.Angle(posLocal, Vector3.up));
         return Vector3.Angle(posLocal, Vector3.up) < tol;
     }
 
     public bool AimingAtTargetLocal(Vector3 posLocal, float tol = 15)
     {
+        //Debug.Log(Vector3.Angle(posLocal, Vector3.up));
         return Vector3.Angle(posLocal, Vector3.up) < tol;
     }
 
@@ -672,7 +731,7 @@ public class gun : ShipObject
         if (!reactor.power) reactor.batteryAmount -= batteryConsumption * 5;
         if (playSounds)
         {
-            Debug.Log("playing sound");
+            //Debug.Log("playing sound");
             shootSound.play(barrel.transform.position);
         }
 
@@ -719,6 +778,7 @@ public class gun : ShipObject
         tempParticle.impactSound = impactSount;
         tempParticle.dmg = dmg;
         tempParticle.forMissile = true;
+        tempParticle.actualTarget = targetLock;
         if (tempParticle.hitscan)
         {
             tempParticle.velocity = ship.rb.velocity;
