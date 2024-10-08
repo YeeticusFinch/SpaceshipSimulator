@@ -9,6 +9,7 @@ public class gun : ShipObject
     public float electricNoise = 2;
     public float shootNoise = 0.5f;
     public float batteryConsumption = 0.1f;
+    public int bulletRegenRate = 0;
 
     [NonSerialized]
     public bool folded = false;
@@ -182,6 +183,10 @@ public class gun : ShipObject
         {
             if (c % 10 == 0)
             {
+                if (ammo < maxAmmo)
+                    ammo += bulletRegenRate;
+                if (ammo > maxAmmo)
+                    ammo = maxAmmo;
                 speedMult = reactor.power ? (reactor.highPower ? 1.5f : (reactor.lowPower ? 0.5f : 1)) : 1;
                 if (flashlight != null)
                 {

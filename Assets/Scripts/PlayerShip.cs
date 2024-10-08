@@ -338,6 +338,10 @@ public class PlayerShip : MonoBehaviour
                         Destroy(targetLocker);
                         targetLocking = false;
                         ship.Target(closestTarget.target, targetWeaponIndex, targetWeaponType);
+                    } else
+                    {
+                        Destroy(targetLocker);
+                        targetLocking = false;
                     }
                 }
             }

@@ -8,6 +8,7 @@ public class ShipObject : MonoBehaviour
     public bool forMissile = false;
     public float maxHP = 10;
     public float HP = 10;
+    public float healRate = 0;
 
     public Vector3 maxRotation;
 
@@ -43,9 +44,13 @@ public class ShipObject : MonoBehaviour
         }
     }
 
+    protected int cc = 0;
+
     // Update is called once per frame
     protected void FixedUpdate()
     {
+        cc++;
+        cc %= 10000;
         if (HP > maxHP)
             HP = maxHP;
         if (HP <= 0.01f)
@@ -58,6 +63,13 @@ public class ShipObject : MonoBehaviour
                 Destroy(gameObject);
             else
                 gameObject.SetActive(false);
+        }
+        if (cc % 10 == 0)
+        {
+            if (HP < maxHP && HP > 1)
+                HP += healRate;
+            if (HP > maxHP)
+                HP = maxHP;
         }
     }
 
