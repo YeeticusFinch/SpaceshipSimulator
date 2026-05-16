@@ -158,7 +158,7 @@ public class Reactor : ShipObject
         exp.GetComponent<Explosion>().vel = rb.GetPointVelocity(transform.position);
         exp.GetComponent<Explosion>().radius = 10;
         exp.GetComponent<Explosion>().density = 10;
-        exp.GetComponent<Explosion>().dmg.ScaleDamageAndOG(15f);
+        exp.GetComponent<Explosion>().dmg.ScaleDamageAndOG(20f);
         exp.GetComponent<Explosion>().delay = 0.1f;
         //yield return new WaitForSeconds(0.1f);
         GameObject exp2 = Instantiate(Resources.Load("Explosions/Explosion")) as GameObject;
@@ -166,7 +166,7 @@ public class Reactor : ShipObject
         exp2.GetComponent<Explosion>().vel = rb.GetPointVelocity(transform.position);
         exp2.GetComponent<Explosion>().radius = 20;
         exp2.GetComponent<Explosion>().density = 10;
-        exp2.GetComponent<Explosion>().dmg.ScaleDamageAndOG(10f);
+        exp2.GetComponent<Explosion>().dmg.ScaleDamageAndOG(15f);
         exp2.GetComponent<Explosion>().delay = 0.2f;
         //yield return new WaitForSeconds(0.1f);
         GameObject exp3 = Instantiate(Resources.Load("Explosions/Explosion")) as GameObject;
@@ -174,7 +174,7 @@ public class Reactor : ShipObject
         exp3.GetComponent<Explosion>().vel = rb.GetPointVelocity(transform.position);
         exp3.GetComponent<Explosion>().radius = 30;
         exp3.GetComponent<Explosion>().density = 5;
-        exp3.GetComponent<Explosion>().dmg.ScaleDamageAndOG(6f);
+        exp3.GetComponent<Explosion>().dmg.ScaleDamageAndOG(8f);
         exp3.GetComponent<Explosion>().delay = 0.3f;
         //yield return new WaitForSeconds(0.1f);
         GameObject exp4 = Instantiate(Resources.Load("Explosions/Explosion")) as GameObject;
@@ -182,7 +182,7 @@ public class Reactor : ShipObject
         exp4.GetComponent<Explosion>().vel = rb.GetPointVelocity(transform.position);
         exp4.GetComponent<Explosion>().radius = 40;
         exp4.GetComponent<Explosion>().density = 5;
-        exp3.GetComponent<Explosion>().dmg.ScaleDamageAndOG(4f);
+        exp4.GetComponent<Explosion>().dmg.ScaleDamageAndOG(5f);
         exp4.GetComponent<Explosion>().delay = 0.4f;
         //exp.GetComponent<Explosion>()
         HP = 0;

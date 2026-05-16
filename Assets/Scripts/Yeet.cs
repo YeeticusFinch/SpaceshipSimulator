@@ -7,6 +7,9 @@ using System.Collections.Generic;
 public class Yeet
 {
 
+    public static int particleRenderDistance = 100;
+    public static int fieldOfView = 60;
+
     public static string[] ShipNames =
         {
             "Fancy Ship",

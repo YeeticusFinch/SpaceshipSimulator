@@ -137,12 +137,33 @@ public class SpaceShip : SpaceObject
     public bool useInterceptMissiles = false;
 
     int activeTargeters = 0;
+    
+    public List<Servo.Position> w_servos = new List<Servo.Position>();
+    public List<Servo.Position> a_servos = new List<Servo.Position>();
+    public List<Servo.Position> s_servos = new List<Servo.Position>();
+    public List<Servo.Position> d_servos = new List<Servo.Position>();
+    public List<Servo.Position> q_servos = new List<Servo.Position>();
+    public List<Servo.Position> e_servos = new List<Servo.Position>();
+    public List<Servo.Position> space_servos = new List<Servo.Position>();
+    public List<Servo.Position> shift_servos = new List<Servo.Position>();
+    public List<Servo.Position> alt_w_servos = new List<Servo.Position>();
+    public List<Servo.Position> alt_a_servos = new List<Servo.Position>();
+    public List<Servo.Position> alt_s_servos = new List<Servo.Position>();
+    public List<Servo.Position> alt_d_servos = new List<Servo.Position>();
+    public List<Servo.Position> alt_space_servos = new List<Servo.Position>();
+    public List<Servo.Position> alt_shift_servos = new List<Servo.Position>();
+
+    [NonSerialized]
+    public bool usesServos = false;
+
+    private LayerMask terrainLayerMask;
 
     // Start is called before the first frame update
     void Start()
     {
         base.Start();
         if (trophy) return;
+        terrainLayerMask = LayerMask.GetMask("Terrain");
         stabalizerPower = defaultStabalizerPower;
         Kp = defaultKp;
         speedTol = defaultSpeedTol;
@@ -152,25 +173,77 @@ public class SpaceShip : SpaceObject
         shipUUID = numShips;
         numShips++;
         isShip = true;
+        if (Game.instance != null && Mathf.Abs(Game.instance.gravity) > 0.5f)
+        {
+            useMainDriveForStabalization = true;
+            autoBrakes = true;
+        }
         ConfigThrusters();
         //rb = GetComponent<Rigidbody>();
         thirdPersonRot = Vector3.zero;
         thirdPersonTrans = Vector3.zero;
         name = Yeet.ShipNames[Random.Range(0, Yeet.ShipNames.Length)];
+        StartCoroutine(ConfigServos());
+    }
+
+    IEnumerator ConfigServos()
+    {
+        yield return new WaitForSeconds(0.2f);
+        foreach (Servo s in GetComponentsInChildren<Servo>())
+        {
+            if (s == null)
+                continue;
+            usesServos = true;
+            foreach (Servo.Position p in s.positions)
+            {
+                if (p.keys.w)
+                    w_servos.Add(p);
+                if (p.keys.a)
+                    a_servos.Add(p);
+                if (p.keys.s)
+                    s_servos.Add(p);
+                if (p.keys.d)
+                    d_servos.Add(p);
+                if (p.keys.space)
+                    space_servos.Add(p);
+                if (p.keys.shift)
+                    shift_servos.Add(p);
+                if (p.keys.q)
+                    q_servos.Add(p);
+                if (p.keys.e)
+                    e_servos.Add(p);
+
+                if (p.keys.a_w)
+                    alt_w_servos.Add(p);
+                if (p.keys.a_a)
+                    alt_a_servos.Add(p);
+                if (p.keys.a_s)
+                    alt_s_servos.Add(p);
+                if (p.keys.a_d)
+                    alt_d_servos.Add(p);
+                if (p.keys.a_space)
+                    alt_space_servos.Add(p);
+                if (p.keys.a_shift)
+                    alt_shift_servos.Add(p);
+            }
+        }
     }
 
     void ConfigThrusters()
     {
         foreach (Thruster t in transform.GetComponentsInChildren<Thruster>())
         {
-            if (t.mainDrive)
-                t.GrabValues(mainDrive);
-            else if (t.teaKettle)
-                t.GrabValues(teaKettle);
-            else if (t.misc)
-                t.GrabValues(misc);
-            else if (t.misc2)
-                t.GrabValues(misc2);
+            if (t.copyThrusterGroup)
+            {
+                if (t.mainDrive)
+                    t.GrabValues(mainDrive);
+                else if (t.teaKettle)
+                    t.GrabValues(teaKettle);
+                else if (t.misc)
+                    t.GrabValues(misc);
+                else if (t.misc2)
+                    t.GrabValues(misc2);
+            }
         }
     }
 
@@ -182,6 +255,21 @@ public class SpaceShip : SpaceObject
             return;
         else
             base.OnCollisionEnter(collision);
+        
+        float relVel = collision.relativeVelocity.magnitude;
+        Debug.Log("Collision: " + relVel);
+        if (relVel > 1)
+        {
+                GameObject exp = Instantiate(Resources.Load("Explosions/InterceptExplosion")) as GameObject;
+                exp.transform.position = transform.position;
+                exp.GetComponent<Explosion>().vel = rb.GetPointVelocity(transform.position);
+                exp.GetComponent<Explosion>().radius = Mathf.Max(1, (int)(relVel/2));
+                exp.GetComponent<Explosion>().density = Mathf.Max(1, (int)(relVel / 2));
+                exp.GetComponent<Explosion>().dmg.ScaleDamageAndOG(relVel);
+                exp.GetComponent<Explosion>().delay = 0.1f;
+            //Damage(new Yeet.Dmg(0.05f * relVel, 5 * relVel, 0.01f * relVel, 1 * relVel, 0, 2 * relVel, 0), collision.contacts[0].point, 1);
+        }
+    
     }
 
     public void rebootPropulsion()
@@ -283,7 +371,7 @@ public class SpaceShip : SpaceObject
         if (thirdPersonCamera)
         {
             thirdPersonCamera.transform.localPosition += amount * Vector3.forward;
-        }
+        } 
     }
 
     public bool IsAlive()
@@ -590,13 +678,15 @@ public class SpaceShip : SpaceObject
 
                             bool dangerObject = false;
 
-                            if (Vector3.Distance(o.transform.position, transform.position) > 1f && o.gameObject.GetComponent<Rigidbody>() != null)
+                            if (Vector3.Distance(o.transform.position, transform.position) > 1f && (o.gameObject.GetComponent<Rigidbody>() != null || o.gameObject.GetComponent<Missile>() != null))
                             {
-                                Vector3 velDiff = o.gameObject.GetComponent<Rigidbody>().velocity - rb.velocity;
+                                Vector3 velDiff = (o.gameObject.GetComponent<Missile>() != null ? o.gameObject.GetComponent<Missile>().getVelocity() : o.gameObject.GetComponent<Rigidbody>().velocity) - rb.velocity;
 
-                                if ((o.gameObject.tag == "AlwaysTarget" || (o.gameObject.GetComponent<SimpleMotionObject>() != null && o.gameObject.GetComponent<SimpleMotionObject>().alwaysTarget)) || (o.gameObject.GetComponent<Missile>() != null && o.gameObject.GetComponent<Missile>().target != null && Vector3.Distance(o.gameObject.GetComponent<Missile>().target.transform.position, transform.position) < o.gameObject.GetComponent<Missile>().explodeRange && o.gameObject.GetComponent<Missile>().chasing) || (Vector3.Angle(transform.position - o.gameObject.transform.position, velDiff) < 10 && o.gameObject.GetComponent<Rigidbody>().velocity.magnitude > 5f && Vector3.Distance(transform.position, o.transform.position) < safeDistance))
+                                if ((o.gameObject.tag == "AlwaysTarget" || (o.gameObject.GetComponent<SimpleMotionObject>() != null && o.gameObject.GetComponent<SimpleMotionObject>().alwaysTarget)) || (o.gameObject.GetComponent<Missile>() != null && o.gameObject.GetComponent<Missile>().target != null && Vector3.Distance(o.gameObject.GetComponent<Missile>().target.transform.position, transform.position) < o.gameObject.GetComponent<Missile>().explodeRange && o.gameObject.GetComponent<Missile>().chasing) || (Vector3.Angle(transform.position - o.gameObject.transform.position, velDiff) < 10 && ((o.gameObject.GetComponent<Rigidbody>() != null && o.gameObject.GetComponent<Rigidbody>().velocity.magnitude > 5f) || (o.gameObject.GetComponent<Missile>() != null && o.gameObject.GetComponent<Missile>().getVelocity().magnitude > 5f)) && Vector3.Distance(transform.position, o.transform.position) < safeDistance))
                                 {
                                     dangerObjectsPresent = true;
+                                    if (playerShip)
+                                        player.addAlert("Collision course with " + o.name, Color.magenta);
                                     foreach (Targeter t in targeters)
                                     {
                                         if (t.TargetObject(o.gameObject, playerShip && player.traceRadar))
@@ -749,7 +839,7 @@ public class SpaceShip : SpaceObject
         {
             if (pressedKeys.Contains(KeyCode.Q) || overrideQ)
             {
-                FireThrusters(q_thrusters, maneuveringPower);
+                FireThrusters(q_thrusters, maneuveringPower, 4, true);
             }
             else
             {
@@ -760,7 +850,7 @@ public class SpaceShip : SpaceObject
             }
             if (pressedKeys.Contains(KeyCode.E) || overrideE)
             {
-                FireThrusters(e_thrusters, maneuveringPower);
+                FireThrusters(e_thrusters, maneuveringPower, 4, true);
             }
             else
             {
@@ -771,7 +861,7 @@ public class SpaceShip : SpaceObject
             }
             if ((pressedKeys.Contains(KeyCode.W)) || overrideW)
             {
-                FireThrusters(alt_w_thrusters, maneuveringPower);
+                FireThrusters(alt_w_thrusters, maneuveringPower, 7, true);
             } else
             {
                 if (stabalizers && relVel.z > speedTol)
@@ -781,7 +871,7 @@ public class SpaceShip : SpaceObject
             }
             if (pressedKeys.Contains(KeyCode.S) || overrideS)
             {
-                FireThrusters(alt_s_thrusters, maneuveringPower);
+                FireThrusters(alt_s_thrusters, maneuveringPower, 7, true);
             }
             else
             {
@@ -792,7 +882,7 @@ public class SpaceShip : SpaceObject
             }
             if (pressedKeys.Contains(KeyCode.A) || overrideA)
             {
-                FireThrusters(alt_a_thrusters, maneuveringPower);
+                FireThrusters(alt_a_thrusters, maneuveringPower, 6, true);
             }
             else
             {
@@ -803,7 +893,7 @@ public class SpaceShip : SpaceObject
             }
             if (pressedKeys.Contains(KeyCode.D) || overrideD)
             {
-                FireThrusters(alt_d_thrusters, maneuveringPower);
+                FireThrusters(alt_d_thrusters, maneuveringPower, 6, true);
             }
             else
             {
@@ -814,7 +904,7 @@ public class SpaceShip : SpaceObject
             }
             if (pressedKeys.Contains(KeyCode.Space) || overrideSpace)
             {
-                FireThrusters(alt_space_thrusters, maneuveringPower);
+                FireThrusters(alt_space_thrusters, maneuveringPower, 4, true);
             }
             else
             {
@@ -825,23 +915,23 @@ public class SpaceShip : SpaceObject
             }
             if (pressedKeys.Contains(KeyCode.LeftShift) || overrideShift)
             {
-                FireThrusters(alt_shift_thrusters, maneuveringPower);
+                FireThrusters(alt_shift_thrusters, maneuveringPower, 8, true);
             }
             else
             {
                 if (stabalizers && relVel.y < -speedTol)
                 {
-                    PID(relVel.y, -speedTol, alt_space_thrusters, Kp, stabalizerPower);
+                    PID(relVel.y, -speedTol, alt_space_thrusters, Kp, stabalizerPower, false);
 
                     if (useMainDriveForStabalization)
-                        PID(relVel.y, -speedTol, space_thrusters, Kp, stabalizerPower);
+                        PID(relVel.y, -speedTol, space_thrusters, Kp, stabalizerPower, true);
                 }
             }
         } else
         {
             if ((pressedKeys.Contains(KeyCode.W)) || overrideW)
             {
-                FireThrusters(w_thrusters, maneuveringPower);
+                FireThrusters(w_thrusters, maneuveringPower, 7, true);
             }
             else
             {
@@ -852,7 +942,7 @@ public class SpaceShip : SpaceObject
             }
             if (pressedKeys.Contains(KeyCode.S) || overrideS)
             {
-                FireThrusters(s_thrusters, maneuveringPower);
+                FireThrusters(s_thrusters, maneuveringPower, 7, true);
             }
             else
             {
@@ -863,7 +953,7 @@ public class SpaceShip : SpaceObject
             }
             if (pressedKeys.Contains(KeyCode.A) || overrideA)
             {
-                FireThrusters(a_thrusters, maneuveringPower);
+                FireThrusters(a_thrusters, maneuveringPower, 6, true);
             }
             else
             {
@@ -874,7 +964,7 @@ public class SpaceShip : SpaceObject
             }
             if (pressedKeys.Contains(KeyCode.D) || overrideD)
             {
-                FireThrusters(d_thrusters, maneuveringPower);
+                FireThrusters(d_thrusters, maneuveringPower, 6, true);
             }
             else
             {
@@ -885,11 +975,11 @@ public class SpaceShip : SpaceObject
             }
             if (pressedKeys.Contains(KeyCode.Space) || overrideSpace)
             {
-                FireThrusters(space_thrusters, mainDrivePower);
+                FireThrusters(space_thrusters, mainDrivePower, 4, true);
 
                 if (useStabalizersForMainThrust)
                 {
-                    FireThrusters(alt_space_thrusters, maneuveringPower);
+                    FireThrusters(alt_space_thrusters, maneuveringPower, 8, true);
                 }
             }
             else
@@ -901,44 +991,45 @@ public class SpaceShip : SpaceObject
             }
             if (pressedKeys.Contains(KeyCode.LeftShift) || overrideShift)
             {
-                FireThrusters(shift_thrusters, maneuveringPower);
+                FireThrusters(shift_thrusters, maneuveringPower, 8, true);
             }
             else
             {
                 if (stabalizers && autoBrakes && relVel.y < -speedTol && !IsThrusting(shift_thrusters))
                 {
                     if (useMainDriveForStabalization)
-                        PID(relVel.y, -speedTol, space_thrusters, Kp, stabalizerPower);
+                        PID(relVel.y, -speedTol, space_thrusters, Kp, stabalizerPower, true);
                     else
-                        PID(relVel.y, -speedTol, alt_space_thrusters, Kp, stabalizerPower);
+                        PID(relVel.y, -speedTol, alt_space_thrusters, Kp, stabalizerPower, false);
                 }
             }
             if (pressedKeys.Contains(KeyCode.Q) || overrideQ)
             {
-                FireThrusters(q_thrusters, maneuveringPower);
+                FireThrusters(q_thrusters, maneuveringPower, 5, true);
             }
             else
             {
                 if (stabalizers && relRot.y > speedTol && !IsThrusting(q_thrusters))
                 {
-                    PID(relRot.y, speedTol, e_thrusters, Kp, stabalizerPower);
+                    PID(relRot.y, speedTol, e_thrusters, Kp, stabalizerPower, false);
                 }
             }
             if (pressedKeys.Contains(KeyCode.E) || overrideE)
             {
-                FireThrusters(e_thrusters, maneuveringPower);
+                FireThrusters(e_thrusters, maneuveringPower, 5, true);
             }
             else
             {
                 if (stabalizers && relRot.y < -speedTol && !IsThrusting(e_thrusters))
                 {
-                    PID(relRot.y, -speedTol, q_thrusters, Kp, stabalizerPower);
+                    PID(relRot.y, -speedTol, q_thrusters, Kp, stabalizerPower, false);
                 }
             }
         }
         if (pointTo != null && (!movementKeysPressed || pressedKeys.Contains(KeyCode.LeftControl)))
         {
             Vector3 dir = (pointTo.transform.position - rb.position).normalized;
+            dir = CorrectedDir(dir);
             if (Mathf.Abs(Vector3.Angle(dir, transform.up)) < angleTol)
             {
                 StabalizeRotation(relRot, Kp);
@@ -951,6 +1042,7 @@ public class SpaceShip : SpaceObject
         if (goToPoint != Vector3.zero && !movementKeysPressed)
         {
             Vector3 dir = (goToPoint - rb.position).normalized;
+            dir = CorrectedDir(dir);
             float dist = Vector3.Distance(rb.position, goToPoint);
 
             if (goToPointOld != goToPoint)
@@ -988,7 +1080,18 @@ public class SpaceShip : SpaceObject
                     if (Mathf.Abs(Vector3.Angle(dir, transform.up)) < angleTol)
                     {
                         StabalizeRotation(relRot, Kp);
-                        FireThrusters(space_thrusters, Mathf.Min(dist / 100f, 1));
+                        if (Math.Abs(Game.instance.gravity) > 0.5f)
+                        {
+                            float altitudeDiff = goToPoint.y - rb.position.y;
+                            float thrustPower = altitudeDiff / 100f;
+                            if (rb.velocity.y < 0) thrustPower += Mathf.Abs(rb.velocity.y) / 15;
+                            if (altitudeDiff < 0) thrustPower /= 2;
+                            float altitude = GetHeightAboveTerrain();
+                            if (altitude < 10) thrustPower += 1f;
+                            else if (altitude < 20) thrustPower += 0.5f;
+                            FireThrusters(space_thrusters, Mathf.Min(thrustPower, 1), 4, true);
+                        } else
+                            FireThrusters(space_thrusters, Mathf.Min(dist / 100f, 1), 4, true);
                     } else
                     {
                         TurnToPoint(dir, relRot);
@@ -1033,26 +1136,66 @@ public class SpaceShip : SpaceObject
             {
                 rot_dir = 0;
                 StabalizeRotation(relRot, Kp);
-                PID(relVel.y, -speedTol, space_thrusters);
+                PID(relVel.y, -speedTol, space_thrusters, false);
                 if (useStabalizersForMainThrust)
-                    PID(relVel.y, -speedTol, alt_space_thrusters);
-                PID(relVel.y, speedTol, shift_thrusters);
+                    PID(relVel.y, -speedTol, alt_space_thrusters, false);
+                PID(relVel.y, speedTol, shift_thrusters, false);
                 
             }
             else
             {
-                TurnToPoint(-relVelGlob, relRot);
+                Vector3 dir = CorrectedDir(-relVelGlob);
+                TurnToPoint(dir, relRot);
                 
-                if (Mathf.Abs(Vector3.Angle(-relVelGlob, transform.up)) < angleTol*10)
+                if (Mathf.Abs(Vector3.Angle(dir, transform.up)) < angleTol*10)
                 {
                     StabalizePosition(relVel, Kp, true);
                 }
-                else if (Mathf.Abs(Vector3.Angle(-relVelGlob, transform.up)) < angleTol * 30)
+                else if (Mathf.Abs(Vector3.Angle(dir, transform.up)) < angleTol * 30)
                 {
                     StabalizePosition(relVel, Kp, false);
                 }
                 
             }
+        }
+
+        if (c % 10 == 0)
+        {
+            w_priority = 0;
+            a_priority = 0;
+            s_priority = 0;
+            d_priority = 0;
+            shift_priority = 0;
+            space_priority = 0;
+            q_priority = 0;
+            e_priority = 0;
+            a_w_priority = 0;
+            a_a_priority = 0;
+            a_s_priority = 0;
+            a_d_priority = 0;
+            a_shift_priority = 0;
+            a_space_priority = 0;
+        }
+    }
+    
+    public float GetHeightAboveTerrain()
+    {
+        
+        // start the ray a little above transform.position to avoid self-intersection
+        Vector3 origin = transform.position + Vector3.up * 0.1f;
+        Ray ray = new Ray(origin, Vector3.down);
+
+        if (Physics.Raycast(ray, out RaycastHit hit, 1000, terrainLayerMask))
+        {
+            if (playerShip)
+                player.addAlert("Altitude: " + hit.distance, Color.green);
+            //Debug.Log("Altitude: " + hit.distance);
+            return hit.distance;
+        }
+        else
+        {
+            // no terrain below within range
+            return 1000;
         }
     }
 
@@ -1220,7 +1363,40 @@ public class SpaceShip : SpaceObject
     }
 
     private bool prev_stabalizers = false;
-   
+    public float maxTiltDeg = 20f;
+
+    public Vector3 CorrectedDir(Vector3 target)
+    {
+        if (Math.Abs(Game.instance.gravity) > 0.5f) { 
+            // 1) Normalize incoming target
+            target = target.normalized;
+
+            // 2) Clamp it to within 20° of world-up
+           
+            Vector3 worldUp = Vector3.up;
+            float angleFromUp = Vector3.Angle(worldUp, target);
+
+            Vector3 upwardsTarget;
+            if (angleFromUp <= maxTiltDeg)
+            {
+                // within 20°, just use the original
+                upwardsTarget = target;
+            }
+            else
+            {
+                // project out to exactly 20° from up
+                float t = maxTiltDeg / angleFromUp;
+                upwardsTarget = Vector3.Slerp(worldUp, target, t).normalized;
+            }
+
+            return upwardsTarget;
+        } else
+        {
+            return target;
+        }
+    }
+
+
     public void TurnToPoint(Vector3 target, Vector3 relRot)
     {
         target = target.normalized;
@@ -1230,8 +1406,8 @@ public class SpaceShip : SpaceObject
         w_angle = -Yeet.FixAngle(w_angle);
         d_angle = -Yeet.FixAngle(d_angle);
 
-        PID2(w_angle / 180f, relRot.x, w_thrusters, s_thrusters, pointToKp, pointToKd);
-        PID2(d_angle / 180f, relRot.z, a_thrusters, d_thrusters, pointToKp, pointToKd);
+        PID2(w_angle / 180f, relRot.x, w_thrusters, s_thrusters, pointToKp, pointToKd, false);
+        PID2(d_angle / 180f, relRot.z, a_thrusters, d_thrusters, pointToKp, pointToKd, false);
 
         //Debug.Log("relRot=" + relRot);
     }
@@ -1283,9 +1459,9 @@ public class SpaceShip : SpaceObject
             return;
         }
 
-        PID2(targetRot.x/180f, relRot.x, w_thrusters, s_thrusters, 10, 5);
+        PID2(targetRot.x/180f, relRot.x, w_thrusters, s_thrusters, 10, 5, false);
         //PID2(targetRot.y/180f, relRot.y, q_thrusters, e_thrusters, 10, 5);
-        PID2(targetRot.z/180f, relRot.z, a_thrusters, d_thrusters, 10, 5);
+        PID2(targetRot.z/180f, relRot.z, a_thrusters, d_thrusters, 10, 5, false);
     }
 
     public bool isEnemy(SpaceShip o)
@@ -1349,7 +1525,7 @@ public class SpaceShip : SpaceObject
         }
         else if (turnStage == 2)
         {
-            FireThrusters(w_thrusters, stabalizerPower * prop);
+            FireThrusters(w_thrusters, stabalizerPower * prop, 3, true);
             if (angle < start_angle * 0.55f)
                 turnStage += 3;
             else if (angle > start_angle + speedTol)
@@ -1363,7 +1539,7 @@ public class SpaceShip : SpaceObject
         }
         else if (turnStage == 4)
         {
-            FireThrusters(s_thrusters, stabalizerPower * prop);
+            FireThrusters(s_thrusters, stabalizerPower * prop, 3, true);
             if (angle < start_angle * 0.55f)
                 turnStage += 1;
             else if (angle > start_angle + speedTol)
@@ -1383,7 +1559,7 @@ public class SpaceShip : SpaceObject
         else if (turnStage == 6)
         {
             prop = angle / 180f;
-            FireThrusters(a_thrusters, stabalizerPower * prop);
+            FireThrusters(a_thrusters, stabalizerPower * prop, 3, true);
             if (angle < start_angle * 0.55f)
                 turnStage += 3;
             else if (angle > start_angle + speedTol)
@@ -1398,7 +1574,7 @@ public class SpaceShip : SpaceObject
         else if (turnStage == 8)
         {
             prop = angle / 180f;
-            FireThrusters(d_thrusters, stabalizerPower * prop);
+            FireThrusters(d_thrusters, stabalizerPower * prop, 3, true);
             if (angle < start_angle * 0.55f)
                 turnStage += 1;
             else if (angle > start_angle + speedTol)
@@ -1422,7 +1598,7 @@ public class SpaceShip : SpaceObject
         else if (turnStage == 19)
         {
             prop = angle / 90f;
-            FireThrusters(w_thrusters, stabalizerPower * prop);
+            FireThrusters(w_thrusters, stabalizerPower * prop, 3, true);
             if (Vector3.Distance(target, transform.up) < start_angle * 0.55f)
                 turnStage += 3;
             else if (Vector3.Distance(target, transform.up) > start_angle + speedTol)
@@ -1437,7 +1613,7 @@ public class SpaceShip : SpaceObject
         else if (turnStage == 21)
         {
             prop = angle / 90f;
-            FireThrusters(s_thrusters, stabalizerPower * prop);
+            FireThrusters(s_thrusters, stabalizerPower * prop, 3, true);
             if (Vector3.Distance(target, transform.up) < start_angle * 0.55f)
                 turnStage += 1;
             else if (Vector3.Distance(target, transform.up) > start_angle + speedTol)
@@ -1457,7 +1633,7 @@ public class SpaceShip : SpaceObject
         else if (turnStage == 23)
         {
             prop = angle / 90f;
-            FireThrusters(a_thrusters, stabalizerPower * prop);
+            FireThrusters(a_thrusters, stabalizerPower * prop, 3, true);
             if (Vector3.Distance(target, transform.up) < start_angle * 0.55f)
                 turnStage += 3;
             else if (Vector3.Distance(target, transform.up) > start_angle + speedTol)
@@ -1472,7 +1648,7 @@ public class SpaceShip : SpaceObject
         else if (turnStage == 25)
         {
             prop = angle / 90f;
-            FireThrusters(d_thrusters, stabalizerPower * prop);
+            FireThrusters(d_thrusters, stabalizerPower * prop, 3, true);
             if (Vector3.Distance(target, transform.up) < start_angle * 0.55f)
                 turnStage += 1;
             else if (Vector3.Distance(target, transform.up) > start_angle + speedTol)
@@ -1484,18 +1660,122 @@ public class SpaceShip : SpaceObject
             if (Mathf.Abs(relRot.magnitude) < speedTol)
                 turnStage = 0;
         }
-    }    
+    }
 
-    public void FireThrusters(Thruster[] thrusters, float power)
+    int w_priority = 0;
+    int a_priority = 0;
+    int s_priority = 0;
+    int d_priority = 0;
+    int space_priority = 0;
+    int shift_priority = 0;
+    int q_priority = 0;
+    int e_priority = 0;
+    int a_w_priority = 0;
+    int a_a_priority = 0;
+    int a_s_priority = 0;
+    int a_d_priority = 0;
+    int a_space_priority = 0;
+    int a_shift_priority = 0;
+
+    public void FireThrusters(Thruster[] thrusters, float power, int priority, bool mainDrive = false)
     {
         if (power <= 0)
             return;
+
+        if (usesServos)
+        {
+            if (w_servos.Count > 0 && thrusters == w_thrusters && priority > w_priority)
+            {
+                w_priority = priority;
+                foreach (Servo.Position p in w_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (a_servos.Count > 0 && thrusters == a_thrusters && priority > a_priority)
+            {
+                a_priority = priority;
+                foreach (Servo.Position p in a_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (d_servos.Count > 0 && thrusters == d_thrusters && priority > d_priority)
+            {
+                d_priority = priority;
+                foreach (Servo.Position p in d_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (s_servos.Count > 0 && thrusters == s_thrusters && priority > s_priority)
+            {
+                s_priority = priority;
+                foreach (Servo.Position p in s_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (space_servos.Count > 0 && thrusters == space_thrusters && priority > space_priority)
+            {
+                space_priority = priority;
+                foreach (Servo.Position p in space_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (shift_servos.Count > 0 && thrusters == shift_thrusters && priority > shift_priority)
+            {
+                shift_priority = priority;
+                foreach (Servo.Position p in shift_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (q_servos.Count > 0 && thrusters == q_thrusters && priority > q_priority)
+            {
+                q_priority = priority;
+                foreach (Servo.Position p in q_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (e_servos.Count > 0 && thrusters == e_thrusters && priority > e_priority)
+            {
+                e_priority = priority;
+                foreach (Servo.Position p in e_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (alt_w_servos.Count > 0 && thrusters == alt_w_thrusters && priority > a_w_priority)
+            {
+                a_w_priority = priority;
+                foreach (Servo.Position p in alt_w_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (alt_s_servos.Count > 0 && thrusters == alt_s_thrusters && priority > a_s_priority)
+            {
+                a_s_priority = priority;
+                foreach (Servo.Position p in alt_s_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (alt_a_servos.Count > 0 && thrusters == alt_a_thrusters && priority > a_a_priority)
+            {
+                a_a_priority = priority;
+                foreach (Servo.Position p in alt_a_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (alt_d_servos.Count > 0 && thrusters == alt_d_thrusters && priority > a_d_priority)
+            {
+                a_d_priority = priority;
+                foreach (Servo.Position p in alt_d_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (alt_space_servos.Count > 0 && thrusters == alt_space_thrusters && priority > a_space_priority)
+            {
+                a_space_priority = priority;
+                foreach (Servo.Position p in alt_space_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+            else if (alt_shift_servos.Count > 0 && thrusters == alt_shift_thrusters && priority > a_shift_priority)
+            {
+                a_shift_priority = priority;
+                foreach (Servo.Position p in alt_shift_servos)
+                    if (mainDrive || !p.mainDriveOnly) p.Move();
+            }
+        }
+
         if (Game.instance.record && c % 10 == 0)
         {
-            Game.instance.rec.LogThrust(this, thrusters, power > 0, power);
+            Game.instance.rec.LogThrust(this, thrusters, power > 0, power, priority);
         }
         foreach (Thruster t in thrusters)
-            if (t)
+            if (t && (mainDrive || !t.mainDrive))
                 t.Thrust(power);
     }
 
@@ -1503,7 +1783,7 @@ public class SpaceShip : SpaceObject
     {
         if (Game.instance.record && c % 10 == 0)
         {
-            Game.instance.rec.LogThrust(this, thrusters, false, 0);
+            Game.instance.rec.LogThrust(this, thrusters, false, 0, 0);
         }
         foreach (Thruster t in thrusters)
             if (t)
@@ -1515,27 +1795,27 @@ public class SpaceShip : SpaceObject
         float speedTol = this.speedTol * 0.5f;
         if (relRot.x < -speedTol)
         {
-            PID(relRot.x, -speedTol, w_thrusters, Kp);
+            PID(relRot.x, -speedTol, w_thrusters, Kp, false);
         }
         if (relRot.x > speedTol)
         {
-            PID(relRot.x, speedTol, s_thrusters, Kp);
+            PID(relRot.x, speedTol, s_thrusters, Kp, false);
         }
         if (relRot.y > speedTol)
         {
-            PID(relRot.y, speedTol, e_thrusters, Kp);
+            PID(relRot.y, speedTol, e_thrusters, Kp, false);
         }
         if (relRot.y < -speedTol)
         {
-            PID(relRot.y, -speedTol, q_thrusters, Kp);
+            PID(relRot.y, -speedTol, q_thrusters, Kp, false);
         }
         if (relRot.z > speedTol)
         {
-            PID(relRot.z, speedTol, d_thrusters, Kp);
+            PID(relRot.z, speedTol, d_thrusters, Kp, false);
         }
         if (relRot.z < -speedTol)
         {
-            PID(relRot.z, -speedTol, a_thrusters, Kp);
+            PID(relRot.z, -speedTol, a_thrusters, Kp, false);
         }
     }
 
@@ -1543,34 +1823,34 @@ public class SpaceShip : SpaceObject
     {
         if (relVel.z > speedTol)
         {
-            PID(relVel.z, speedTol, alt_s_thrusters, Kp, stabalizerPower);
+            PID(relVel.z, speedTol, alt_s_thrusters, Kp, stabalizerPower, useMainDrive);
         }
 
         if (relVel.z < -speedTol)
         {
-            PID(relVel.z, -speedTol, alt_w_thrusters, Kp, stabalizerPower);
+            PID(relVel.z, -speedTol, alt_w_thrusters, Kp, stabalizerPower, useMainDrive);
         }
 
         if (relVel.x < -speedTol)
         {
-            PID(relVel.x, -speedTol, alt_d_thrusters, Kp, stabalizerPower);
+            PID(relVel.x, -speedTol, alt_d_thrusters, Kp, stabalizerPower, useMainDrive);
         }
 
         if (relVel.x > speedTol)
         {
-            PID(relVel.x, speedTol, alt_a_thrusters, Kp, stabalizerPower);
+            PID(relVel.x, speedTol, alt_a_thrusters, Kp, stabalizerPower, useMainDrive);
         }
 
         if (relVel.y > speedTol)
         {
-            PID(relVel.y, speedTol, alt_shift_thrusters, Kp, stabalizerPower);
+            PID(relVel.y, speedTol, alt_shift_thrusters, Kp, stabalizerPower, useMainDrive);
         }
 
         if (relVel.y < -speedTol)
         {
-            PID(relVel.y, -speedTol, alt_space_thrusters, Kp, stabalizerPower);
+            PID(relVel.y, -speedTol, alt_space_thrusters, Kp, stabalizerPower, useMainDrive);
             if (useMainDrive)
-                PID(relVel.y, -speedTol, space_thrusters, Kp, stabalizerPower);
+                PID(relVel.y, -speedTol, space_thrusters, Kp, stabalizerPower, useMainDrive);
         }
     }
 
@@ -1583,15 +1863,16 @@ public class SpaceShip : SpaceObject
     public float pointToKp = 8;
     public float pointToKd = 5;
 
-    private void PID(float error, float errorTol, Thruster[] thrusters)
+    private void PID(float error, float errorTol, Thruster[] thrusters, bool mainDrive)
     {
-        PID(error, errorTol, thrusters, this.Kp);
+        PID(error, errorTol, thrusters, this.Kp, mainDrive);
     }
 
-    private void PID(float error, float errorTol, Thruster[] thrusters, float Kp)
+    private void PID(float error, float errorTol, Thruster[] thrusters, float Kp, bool mainDrive = false)
     {
         error = error * Mathf.Sign(errorTol);
 
+        /*
         if (Game.instance.record && c % 10 == 0)
         {
             Game.instance.rec.LogThrust(this, thrusters, Kp * error > 0, Kp*error);
@@ -1602,12 +1883,18 @@ public class SpaceShip : SpaceObject
             if (t != null)
                 t.Thrust(Kp * error);
         }
+        */
+
+        FireThrusters(thrusters, Kp * error, 2, mainDrive);
     }
 
-    private void PID(float error, float errorTol, Thruster[] thrusters, float Kp, float max)
+    private void PID(float error, float errorTol, Thruster[] thrusters, float Kp, float max, bool mainDrive = false)
     {
         error = error * Mathf.Sign(errorTol);
 
+        FireThrusters(thrusters, Mathf.Min(Kp * error, max), 2, mainDrive);
+
+        /*
         if (Game.instance != null && Game.instance.record && c % 10 == 0)
         {
             Game.instance.rec.LogThrust(this, thrusters, Mathf.Min(Kp * error, max) > 0, Mathf.Min(Kp*error, max));
@@ -1618,18 +1905,21 @@ public class SpaceShip : SpaceObject
             if (t != null)
                 t.Thrust(Mathf.Min(Kp * error, max));
         }
+        */
     }
 
-    private void PID2(float error, float deltaError, Thruster[] pos, Thruster[] neg, float Kp, float Kd)
+    private void PID2(float error, float deltaError, Thruster[] pos, Thruster[] neg, float Kp, float Kd, bool mainDrive = false)
     {
         float result = Kp * error + Kd * deltaError;
         //Debug.Log("error = " + error + " deltaError = " + deltaError + " Result = " + result);
 
+        /*
         if (Game.instance.record && c % 10 == 0)
         {
             Game.instance.rec.LogThrust(this, neg, result > 0, result);
             Game.instance.rec.LogThrust(this, pos, -result > 0, -result);
         }
+        
 
         if (result > 0)
             foreach (Thruster t in neg)
@@ -1637,6 +1927,12 @@ public class SpaceShip : SpaceObject
         else
             foreach (Thruster t in pos)
                 t.Thrust(-result);
+                */
+
+        if (result > 0)
+            FireThrusters(neg, result, 2, mainDrive);
+        else
+            FireThrusters(pos, -result, 2, mainDrive);
     }
 
     public int GetThrusterGroupNumber(Thruster[] thrusters)

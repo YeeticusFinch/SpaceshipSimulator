@@ -105,7 +105,7 @@ public class NpcShip : MonoBehaviour
                 ship.useInterceptMissiles = true;
                 break;
         }
-        ship.useInterceptMissiles = false;
+        //ship.useInterceptMissiles = false;
     }
 
     int c = 0;

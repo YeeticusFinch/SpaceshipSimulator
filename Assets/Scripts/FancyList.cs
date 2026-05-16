@@ -54,6 +54,7 @@ public class FancyList : MonoBehaviour
     public void GetUpdatedValues()
     {
         values = panel.GetUpdatedListValue(id);
+        if (values == null || values.Length == 0) return;
         offset %= values.Length;
         if (offset % maxLines != 0)
             offset -= offset % maxLines;
@@ -70,7 +71,7 @@ public class FancyList : MonoBehaviour
             }
             else if (values[i + offset].Contains("%y"))
             {
-                valueTxts[i + 1 + offset].color = Color.yellow;
+                valueTxts[i + 1].color = Color.yellow;
             }
             else
             {

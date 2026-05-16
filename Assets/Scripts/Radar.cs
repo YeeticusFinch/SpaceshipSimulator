@@ -70,7 +70,13 @@ public class Radar : ShipObject
                 {
                     if (o_ship.jamRadars)
                         return false;
+                    else
+                    {
+                        if (o_ship.playerShip && o_ship != ship)
+                            o_ship.player.addAlert("Incoming radar ping", Color.gray);
+                    }
                 }
+                
                 return true;
             }
 
@@ -89,6 +95,8 @@ public class Radar : ShipObject
                 {
                     if (o_ship.jamRadars)
                         return false;
+                    else if (o_ship.playerShip && o_ship != ship)
+                        o_ship.player.addAlert("Incoming radar ping", Color.gray);
                 }
                 return true;
             }

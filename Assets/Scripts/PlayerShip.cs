@@ -26,6 +26,8 @@ public class PlayerShip : MonoBehaviour
     public bool missileControl = false;
     public AudioListener listener;
 
+    public TextMeshProUGUI[] alerts;
+
     [NonSerialized]
     public bool traceMissile = false;
     [NonSerialized]
@@ -94,6 +96,10 @@ public class PlayerShip : MonoBehaviour
     IEnumerator DelayedStart()
     {
         yield return new WaitForSeconds(0.2f);
+        foreach (TextMeshProUGUI tmp in alerts)
+        {
+            tmp.text = "";
+        }
         if (controllingMissile)
             missileControl = true;
         tab = 0;
@@ -106,6 +112,7 @@ public class PlayerShip : MonoBehaviour
         {
             cam.transform.parent = ship.cameras[camIndex].transform;
             cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            cam.fieldOfView = Yeet.fieldOfView;
             Toggle3rdPersonCamera();
             ship.playerShip = true;
             ship.playSounds = true;
@@ -117,6 +124,7 @@ public class PlayerShip : MonoBehaviour
         {
             cam.transform.parent = missile.transform;
             cam.transform.SetLocalPositionAndRotation(Vector3.forward * (-5), Quaternion.identity);
+            cam.fieldOfView = Yeet.fieldOfView;
         }
     }
 
@@ -137,6 +145,17 @@ public class PlayerShip : MonoBehaviour
         targetWeaponIndex = weaponIndex;
         targetWeaponType = weaponType;
     }
+    public void addAlert(string text, Color color)
+    {
+        for (int i = alerts.Length-1; i > 0; i--)
+        {
+            alerts[i].text = alerts[i - 1].text;
+            alerts[i].color = alerts[i - 1].color;
+        }
+        alerts[0].text = text;
+        alerts[0].color = color;
+    }
+
 
     private void FixedUpdate()
     {
@@ -302,7 +321,19 @@ public class PlayerShip : MonoBehaviour
             }
             if (Input.mouseScrollDelta.x != 0 || Input.mouseScrollDelta.y != 0)
             {
-                ship.cameraZoom(Input.mouseScrollDelta.x + Input.mouseScrollDelta.y);
+                float amount = Input.mouseScrollDelta.x + Input.mouseScrollDelta.y;
+                //Debug.Log("Zooming");
+                if (thirdPerson)
+                    ship.cameraZoom(amount);
+                else
+                {
+                   while (cam.fieldOfView < Mathf.Abs(amount))
+                       amount *= 0.1f;
+                   if (cam.fieldOfView - amount > 0.01f)
+                    cam.fieldOfView -= amount;
+                   if (cam.fieldOfView > 90)
+                    cam.fieldOfView = 90;
+                }
             }
             if (Input.GetMouseButtonUp(1) || Input.GetMouseButtonUp(2))
             {
@@ -328,20 +359,25 @@ public class PlayerShip : MonoBehaviour
                         }
                     }
 
-                    float distance = Vector2.Distance(closestTarget.GetComponent<RectTransform>().anchoredPosition, targetLocker.GetComponent<RectTransform>().anchoredPosition);
-
-                    //Debug.Log("Distance = " + distance);
-
-                    //if (distance < 1.15f)
-                    if (distance < 30)
+                    if (closestTarget != null)
                     {
-                        Destroy(targetLocker);
-                        targetLocking = false;
-                        ship.Target(closestTarget.target, targetWeaponIndex, targetWeaponType);
-                    } else
-                    {
-                        Destroy(targetLocker);
-                        targetLocking = false;
+
+                        float distance = Vector2.Distance(closestTarget.GetComponent<RectTransform>().anchoredPosition, targetLocker.GetComponent<RectTransform>().anchoredPosition);
+
+                        //Debug.Log("Distance = " + distance);
+
+                        //if (distance < 1.15f)
+                        if (distance < 30)
+                        {
+                            Destroy(targetLocker);
+                            targetLocking = false;
+                            ship.Target(closestTarget.target, targetWeaponIndex, targetWeaponType);
+                        }
+                        else
+                        {
+                            Destroy(targetLocker);
+                            targetLocking = false;
+                        }
                     }
                 }
             }
@@ -396,6 +432,7 @@ public class PlayerShip : MonoBehaviour
             thirdPerson = false;
             cam.transform.parent = ship.turrets[turretNumber].cam.transform;
             cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            cam.fieldOfView = Yeet.fieldOfView;
             ship.activeGun = ship.turrets[turretNumber];
             turretMode = true;
         }
@@ -411,6 +448,7 @@ public class PlayerShip : MonoBehaviour
             thirdPerson = false;
             cam.transform.parent = ship.statGuns[cannonNumber].cam.transform;
             cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            cam.fieldOfView = Yeet.fieldOfView;
             ship.activeGun = ship.statGuns[cannonNumber];
             cannonMode = true;
         }
@@ -423,6 +461,7 @@ public class PlayerShip : MonoBehaviour
             thirdPerson = false;
             cam.transform.parent = ship.cameras[camIndex].transform;
             cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            cam.fieldOfView = Yeet.fieldOfView;
         } else
         {
             if (turretMode)
@@ -439,6 +478,7 @@ public class PlayerShip : MonoBehaviour
             thirdPerson = true;
             cam.transform.parent = ship.thirdPersonCamera.transform;
             cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            cam.fieldOfView = Yeet.fieldOfView;
         }
     }
 
@@ -459,6 +499,8 @@ public class PlayerShip : MonoBehaviour
         camIndex %= ship.cameras.Length;
         cam.transform.parent = ship.cameras[camIndex].transform;
         cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+        thirdPerson = false;
+        cam.fieldOfView = Yeet.fieldOfView;
     }
 
     public void SwitchTab(int tab)

@@ -65,6 +65,11 @@ public class MissileLauncher : ShipObject
     {
         this.target = target;
         launch = true;
+        if (target.GetComponent<SpaceShip>() != null)
+        {
+            if (target.GetComponent<SpaceShip>().playerShip)
+                target.GetComponent<SpaceShip>().player.addAlert("Incoming missile!", Color.red);
+        }
     }
 
     public void Launch(GameObject target, Indicator targetIndi)
@@ -77,7 +82,7 @@ public class MissileLauncher : ShipObject
     {
         GameObject o = Instantiate(missile.gameObject, transform.TransformPoint(spawnPoint), transform.rotation) as GameObject;
         Missile m = o.GetComponent<Missile>();
-        o.GetComponent<Rigidbody>().velocity = ship.rb.velocity + transform.TransformDirection(launchVel);
+        m.setVelocity(ship.rb.velocity + transform.TransformDirection(launchVel));
         m.safePos = transform.TransformPoint(safePos);
         m.safeVel = ship.rb.velocity + transform.TransformDirection(launchVel);
         m.target = target;

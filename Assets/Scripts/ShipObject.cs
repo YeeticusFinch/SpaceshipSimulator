@@ -39,7 +39,7 @@ public class ShipObject : MonoBehaviour
             repair();
             originalDir = transform.localEulerAngles;
 
-            reactor = ship.reactor;
+            reactor = ship.reactor; 
             //Debug.Log("Reactor = " + reactor);
         }
     }
@@ -93,16 +93,27 @@ public class ShipObject : MonoBehaviour
         return HP <= 0.01f;
     }
 
-    /*
-    private void OnCollisionEnter(Collision collision)
+    
+    public void OnCollisionEnter(Collision collision)
     {
         float relVel = collision.relativeVelocity.magnitude;
+        Debug.Log("Collision: " + relVel);
         if (relVel > 1)
         {
+            if (relVel > 6)
+            {
+                GameObject exp = Instantiate(Resources.Load("Explosions/InterceptExplosion")) as GameObject;
+                exp.transform.position = transform.position;
+                exp.GetComponent<Explosion>().vel = rb.GetPointVelocity(transform.position);
+                exp.GetComponent<Explosion>().radius = 10;
+                exp.GetComponent<Explosion>().density = 10;
+                exp.GetComponent<Explosion>().dmg.ScaleDamageAndOG(20f);
+                exp.GetComponent<Explosion>().delay = 0.1f;
+            }
             Damage(new Yeet.Dmg(0.05f * relVel, 5 * relVel, 0.01f * relVel, 1 * relVel, 0, 2 * relVel, 0), collision.contacts[0].point, 1);
         }
     }
-    */
+    
 
     public Yeet.Dmg Damage(Yeet.Dmg dmg, Vector3 pos, float decay = 1)
     {

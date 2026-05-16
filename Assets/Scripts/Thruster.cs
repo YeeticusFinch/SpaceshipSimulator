@@ -1,11 +1,18 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class Thruster : ShipObject
 {
+    public bool snapThrust = false;
+    public bool useThrustPos = false;
+    public GameObject thrustPos;
+    public Servo[] servos;
+    public bool servoDisable = false;
     public bool fake = false;
     public bool needsReactor = false;
+    public bool copyThrusterGroup = true;
     public bool mainDrive = false;
     public bool teaKettle = false;
     public bool misc = false;
@@ -103,8 +110,26 @@ public class Thruster : ShipObject
 
     public bool Thrusting()
     {
+        
+        if (servos != null && servos.Length > 0)
+        {
+            foreach (Servo s in servos)
+            {
+                if (!s.atPosition)
+                {
+                    //Debug.Log("Servo " + s.gameObject.name + " not at position");
+                    return false;
+                }
+            }
+            //Debug.Log("All servos at position");
+        }
+        
+        //if (servoDisable)
+        //    return false;
         return (forMissile || (reactor.drivePower && (reactor.power || (reactor.batteryPower && !needsReactor)))) && thrustAmount > 0.001f;
     }
+
+    bool showThrust = false;
 
     private void FixedUpdate()
     {
@@ -125,7 +150,12 @@ public class Thruster : ShipObject
         }
         c++;
         c %= 10000;
-        if (!playSounds && c % 10 == 0 && (ship != null && ship.playSounds)) playSounds = true;
+        if (c % 10 == 0)
+        {
+            if (!playSounds && (ship != null && ship.playSounds)) playSounds = true;
+            if (!mainDrive && Vector2.Distance(Camera.main.transform.position, transform.position) > Yeet.particleRenderDistance) showThrust = false;
+            else showThrust = true;
+        }
         if (!forMissile && reactor == null)
         {
             if (thrusterLight != null)
@@ -191,24 +221,26 @@ public class Thruster : ShipObject
 
     public void DisplayThrust(float amount)
     {
-        GameObject exhaust = Instantiate(thrust) as GameObject;
-        exhaust.GetComponent<Particle>().lifetime = exhaustLife;
-        if (power * powerMult > 600) exhaust.tag = "BigThrust";
-        else exhaust.tag = "Thrust";
-        if (parentThrustToThruster)
+        if (showThrust)
         {
-            exhaust.GetComponent<Particle>().localVelocity = -Vector3.up * power * powerMult * thrustFactor * amount * exhaustVelocityFactor;
-            exhaust.transform.parent = transform;
-            exhaust.transform.localPosition = Vector3.up * thrustOffsetY;
-            //exhaust.GetComponent<Particle>().parent = true;
+            GameObject exhaust = Instantiate(thrust) as GameObject;
+            exhaust.GetComponent<Particle>().lifetime = exhaustLife;
+            if (power * powerMult > 600) exhaust.tag = "BigThrust";
+            else exhaust.tag = "Thrust";
+            if (parentThrustToThruster)
+            {
+                exhaust.GetComponent<Particle>().localVelocity = -Vector3.up * power * powerMult * thrustFactor * amount * exhaustVelocityFactor;
+                exhaust.transform.parent = transform;
+                exhaust.transform.localPosition = Vector3.up * thrustOffsetY;
+                //exhaust.GetComponent<Particle>().parent = true;
+            }
+            else
+            {
+                exhaust.GetComponent<Particle>().velocity = -transform.up * power * powerMult * thrustFactor * amount * exhaustVelocityFactor;
+                exhaust.transform.position = transform.position + transform.up * thrustOffsetY * Time.fixedDeltaTime;
+            }
+            exhaust.transform.localScale *= power * powerMult * exhaustScaleFactor * amount * thrustFactor;
         }
-        else
-        {
-            exhaust.GetComponent<Particle>().velocity = -transform.up * power * powerMult * thrustFactor * amount * exhaustVelocityFactor;
-            exhaust.transform.position = transform.position + transform.up * thrustOffsetY * Time.fixedDeltaTime;
-        }
-        exhaust.transform.localScale *= power * powerMult * exhaustScaleFactor * amount * thrustFactor;
-
 
         float powerFormula = Mathf.Clamp(power * amount * thrustFactor * powerMult * lightIntensityFactor, 0, maxLightIntensity);
         if (thrusterLight.intensity < powerFormula)
@@ -218,6 +250,19 @@ public class Thruster : ShipObject
         }
         else if (thrusterLight.intensity > powerFormula)
             thrusterLight.intensity = Mathf.Clamp(thrusterLight.intensity - 2, 0, maxLightIntensity);
+    }
+
+    private Vector3 closestDir(Vector3 dir)
+    {
+        dir = dir.normalized;
+        Vector3 result = ship.transform.InverseTransformDirection(dir).normalized;
+        if (Mathf.Abs(result.x) > 0.8f && Mathf.Abs(result.y) < 0.2f && Mathf.Abs(result.z) < 0.2f)
+            return ship.transform.TransformDirection(new Vector3(Mathf.Sign(result.x), 0, 0));
+        if (Mathf.Abs(result.y) > 0.8f && Mathf.Abs(result.x) < 0.2f && Mathf.Abs(result.z) < 0.2f)
+            return ship.transform.TransformDirection(new Vector3(0, Mathf.Sign(result.y), 0));
+        if (Mathf.Abs(result.z) > 0.8f && Mathf.Abs(result.y) < 0.2f && Mathf.Abs(result.x) < 0.2f)
+            return ship.transform.TransformDirection(new Vector3(0, 0, Mathf.Sign(result.z)));
+        return Vector3.zero;
     }
 
     private void PerformThrust()
@@ -231,26 +276,41 @@ public class Thruster : ShipObject
 
         if (fake) return;
 
-        if (!(Game.instance != null && Game.instance.playbackRecording))
-            rb.AddForceAtPosition(transform.up * power * powerMult * thrustFactor * amount, transform.position, ForceMode.Impulse);
-        GameObject exhaust = Instantiate(thrust) as GameObject;
-        exhaust.GetComponent<Particle>().lifetime = exhaustLife;
-        if (power * powerMult > 600) exhaust.tag = "BigThrust";
-        else exhaust.tag = "Thrust";
-        if (parentThrustToThruster)
-        {
-            exhaust.GetComponent<Particle>().localVelocity = -Vector3.up * power * powerMult * thrustFactor * amount * exhaustVelocityFactor;
-            exhaust.transform.parent = transform;
-            exhaust.transform.localPosition = Vector3.up * thrustOffsetY;
-            //exhaust.GetComponent<Particle>().parent = true;
-        }
-        else
-        {
-            exhaust.GetComponent<Particle>().velocity = -transform.up * power * powerMult * thrustFactor * amount * exhaustVelocityFactor + rb.velocity;
-            exhaust.transform.position = transform.position + transform.up * thrustOffsetY + rb.velocity * Time.fixedDeltaTime;
-        }
-        exhaust.transform.localScale *= power * powerMult * exhaustScaleFactor * amount * thrustFactor;
 
+        Vector3 thrustDir = transform.up;
+
+        if (snapThrust)
+        {
+            Vector3 snapDir = closestDir(thrustDir);
+            if (snapDir.magnitude > 0.1f)
+            {
+                thrustDir = snapDir;
+            }
+        }
+
+        if (!(Game.instance != null && Game.instance.playbackRecording))
+            rb.AddForceAtPosition(thrustDir * power * powerMult * thrustFactor * amount, useThrustPos && thrustPos != null ? thrustPos.transform.position : transform.position, ForceMode.Impulse);
+        if (showThrust)
+        {
+            GameObject exhaust = Instantiate(thrust) as GameObject;
+            exhaust.GetComponent<Particle>().lifetime = exhaustLife;
+            if (power * powerMult > 600) exhaust.tag = "BigThrust";
+            else exhaust.tag = "Thrust";
+            if (parentThrustToThruster)
+            {
+                exhaust.GetComponent<Particle>().localVelocity = -Vector3.up * power * powerMult * thrustFactor * amount * exhaustVelocityFactor;
+                exhaust.transform.parent = transform;
+                exhaust.transform.localPosition = Vector3.up * thrustOffsetY;
+                //exhaust.GetComponent<Particle>().parent = true;
+            }
+            else
+            {
+                exhaust.GetComponent<Particle>().velocity = -transform.up * power * powerMult * thrustFactor * amount * exhaustVelocityFactor + rb.velocity;
+                exhaust.transform.position = transform.position + transform.up * thrustOffsetY + rb.velocity * Time.fixedDeltaTime;
+            }
+            exhaust.transform.localScale *= power * powerMult * exhaustScaleFactor * amount * thrustFactor;
+
+        }
         if (playSounds)
         {
             thrustSound.vol = maxVol * amount * powerMult;

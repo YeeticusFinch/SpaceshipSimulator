@@ -34,7 +34,11 @@ public class Targeter : Radar
                 if (o_ship.jamTargetters)
                     return false;
                 else
+                {
                     o_ship.targetted = true;
+                    if (o_ship.playerShip)
+                        o_ship.player.addAlert("Incoming targeting laser", Color.yellow);
+                }
             }
             return true;
         } else

@@ -169,7 +169,7 @@ public class Recorder : MonoBehaviour
                                     if (thrusters == null)
                                         Debug.Log("Couldn't find thrusters of id " + log.startThrusters);
                                     else
-                                        ship.FireThrusters(thrusters, log.thrusterPower < 0 ? 1 : log.thrusterPower);
+                                        ship.FireThrusters(thrusters, log.thrusterPower < 0 ? 1 : log.thrusterPower, log.thrustPriority > 0 ? log.thrustPriority : 5);
                                 }
 
                                 if (log.stopThrusters != -1)
@@ -332,7 +332,7 @@ public class Recorder : MonoBehaviour
     [System.Serializable]
     public struct ShipLog
     {
-        public ShipLog(float time, int id, int[] unfoldTurrets, int[] foldTurrets, int[] startShootingTurrets, int[] stopShootingTurrets, int[] launchMissiles, int startThrusters, int stopThrusters, float[] position, float[] velocity, float[] eulerAngle, float[] angularVelocity, int[] destroyChild, float[] setTurretRot, float thrusterPower)
+        public ShipLog(float time, int id, int[] unfoldTurrets, int[] foldTurrets, int[] startShootingTurrets, int[] stopShootingTurrets, int[] launchMissiles, int startThrusters, int stopThrusters, float[] position, float[] velocity, float[] eulerAngle, float[] angularVelocity, int[] destroyChild, float[] setTurretRot, float thrusterPower, int thrustPriority)
         {
             this.time = time;
             this.id = id;
@@ -351,6 +351,7 @@ public class Recorder : MonoBehaviour
             this.destroyChild = destroyChild;
             this.setTurretRot = setTurretRot;
             this.thrusterPower = thrusterPower;
+            this.thrustPriority = thrustPriority;
         }
 
         public float time;
@@ -369,6 +370,7 @@ public class Recorder : MonoBehaviour
         public int[] destroyChild;
         public float[] setTurretRot;
         public float thrusterPower;
+        public int thrustPriority;
     }
 
     [System.Serializable]
@@ -460,7 +462,7 @@ public class Recorder : MonoBehaviour
         float[] eulerAngle = vectorToArray(angle);
         float[] angularVelocity = vectorToArray(angleVel);
         int id = ship.objectID;
-        shipLogs.Add(new ShipLog(GetTime(), id, null, null, null, null, new int[] { launcherIndex }, -1, -1, position, velocity, eulerAngle, angularVelocity, null, null, -1));
+        shipLogs.Add(new ShipLog(GetTime(), id, null, null, null, null, new int[] { launcherIndex }, -1, -1, position, velocity, eulerAngle, angularVelocity, null, null, -1, 0));
 
     }
 
@@ -493,7 +495,7 @@ public class Recorder : MonoBehaviour
 
         float[] setTurretRot = new float[] { turretIndex, currentRot.x, currentRot.y, currentRot.z, targetRot.x, targetRot.y, targetRot.z };
 
-        shipLogs.Add(new ShipLog(GetTime(), id, startUnfold ? new int[] { turretIndex } : null, startFold ? new int[] { turretIndex } : null, startShooting ? new int[] { turretIndex } : null, stopShooting ? new int[] { turretIndex } : null, null, -1, -1, position, velocity, eulerAngle, angularVelocity, null, setTurretRot, -1));
+        shipLogs.Add(new ShipLog(GetTime(), id, startUnfold ? new int[] { turretIndex } : null, startFold ? new int[] { turretIndex } : null, startShooting ? new int[] { turretIndex } : null, stopShooting ? new int[] { turretIndex } : null, null, -1, -1, position, velocity, eulerAngle, angularVelocity, null, setTurretRot, -1, 0));
     }
     
     public void LogTurretGroup(SpaceShip ship, int[] turretIndices, bool startShooting, bool stopShooting, bool startFold, bool startUnfold)
@@ -509,7 +511,7 @@ public class Recorder : MonoBehaviour
         float[] eulerAngle = vectorToArray(angle);
         float[] angularVelocity = vectorToArray(angleVel);
 
-        shipLogs.Add(new ShipLog(GetTime(), id, startUnfold ? turretIndices : null, startFold ? turretIndices : null, startShooting ? turretIndices : null, stopShooting ? turretIndices : null, null, -1, -1, position, velocity, eulerAngle, angularVelocity, null, null, -1));
+        shipLogs.Add(new ShipLog(GetTime(), id, startUnfold ? turretIndices : null, startFold ? turretIndices : null, startShooting ? turretIndices : null, stopShooting ? turretIndices : null, null, -1, -1, position, velocity, eulerAngle, angularVelocity, null, null, -1, 0));
     }
 
     public void KillObject(SpaceObject obj)
@@ -552,11 +554,11 @@ public class Recorder : MonoBehaviour
         float[] eulerAngle = vectorToArray(angle);
         float[] angularVelocity = vectorToArray(angleVel);
 
-        shipLogs.Add(new ShipLog(GetTime(), id, null, null, null, null, null, -1, -1, position, velocity, eulerAngle, angularVelocity, indices.ToArray(), null, -1));
+        shipLogs.Add(new ShipLog(GetTime(), id, null, null, null, null, null, -1, -1, position, velocity, eulerAngle, angularVelocity, indices.ToArray(), null, -1, 0));
 
     }
 
-    public void LogThrust(SpaceShip ship, Thruster[] thrusters, bool thrusting, float power)
+    public void LogThrust(SpaceShip ship, Thruster[] thrusters, bool thrusting, float power, int priority)
     {
         //Debug.Log("Thrusters: " + thrusters);
         ObjLog(ship);
@@ -573,9 +575,9 @@ public class Recorder : MonoBehaviour
         float[] angularVelocity = vectorToArray(angleVel);
         int id = ship.objectID;
         if (thrusting)
-            shipLogs.Add(new ShipLog(GetTime(), id, null, null, null, null, null, thrusterGroupNumber, -1, position, velocity, eulerAngle, angularVelocity, null, null, power));
+            shipLogs.Add(new ShipLog(GetTime(), id, null, null, null, null, null, thrusterGroupNumber, -1, position, velocity, eulerAngle, angularVelocity, null, null, power, priority));
         else
-            shipLogs.Add(new ShipLog(GetTime(), id, null, null, null, null, null, -1, thrusterGroupNumber, position, velocity, eulerAngle, angularVelocity, null, null, power));
+            shipLogs.Add(new ShipLog(GetTime(), id, null, null, null, null, null, -1, thrusterGroupNumber, position, velocity, eulerAngle, angularVelocity, null, null, power, priority));
     }
 
     public void LogMovement(SpaceShip ship)
@@ -590,7 +592,7 @@ public class Recorder : MonoBehaviour
         float[] eulerAngle = vectorToArray(angle);
         float[] angularVelocity = vectorToArray(angleVel);
         int id = ship.objectID;
-        shipLogs.Add(new ShipLog(GetTime(), id, null, null, null, null, null, -1, -1, position, velocity, eulerAngle, angularVelocity, null, null, -1));
+        shipLogs.Add(new ShipLog(GetTime(), id, null, null, null, null, null, -1, -1, position, velocity, eulerAngle, angularVelocity, null, null, -1, 0));
     }
 
     public void LogThrust(Missile missile, Thruster[] thrusters, bool thrusting, float power)

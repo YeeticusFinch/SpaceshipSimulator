@@ -5,6 +5,10 @@ using UnityEngine;
 
 public class gun : ShipObject
 {
+    public bool needsToAim = true;
+    public bool loose = false;
+    public int c_start = 0;
+    public Servo.Position[] servoPositions;
     public bool foldable = false;
     public float electricNoise = 2;
     public float shootNoise = 0.5f;
@@ -64,6 +68,7 @@ public class gun : ShipObject
     public Vector3 maxTurretRot;
     public Vector3 minTurretRot;
     public GameObject targetCrosshair;
+    public GameObject aimCrosshair;
 
     public GameObject targetLaser;
     public GameObject aimLaser;
@@ -116,9 +121,13 @@ public class gun : ShipObject
     public bool rotateShip = false;
     // Start is called before the first frame update
     int maxFoldIndex = 1;
+    int c = 0;
+    float fovSizeRatio = 1;
     new void Start()
     {
         base.Start();
+        fovSizeRatio = targetCrosshair.transform.localScale.magnitude / Yeet.fieldOfView;
+        c = c_start;
         if (!stationary)
             turretRot = Vector3.right * x_axis.transform.localEulerAngles.x + Vector3.forward * z_axis.transform.localEulerAngles.z;
         ammo = maxAmmo;
@@ -129,8 +138,10 @@ public class gun : ShipObject
         if (reactor == null)
             reactor = ship.reactor;
         ogCamRot = cam.transform.localEulerAngles;
-        if (turretType == 0)
+        if (turretType == 0 || turretType == 1 || turretType == 2)
             maxFoldIndex = 2;
+        if (turretType == 3 || turretType == 4)
+            maxFoldIndex = 4;
         if (foldable)
         {
             fold = true;
@@ -150,7 +161,6 @@ public class gun : ShipObject
     }
 
 
-    int c = 0;
     bool cancelShoot = false;
     bool lightsActuallyOn = false;
     bool willHitShip = false;
@@ -178,12 +188,19 @@ public class gun : ShipObject
             }
         }
 
-
+        if (c%10 == 0)
+        {
+            if (ship.activeGun == this)
+            {
+                aimCrosshair.transform.localScale = new Vector3(1, Math.Max(Yeet.fieldOfView / Camera.main.fieldOfView, 0.9f), 1);
+                targetCrosshair.transform.localScale = new Vector3(1, Math.Max(Yeet.fieldOfView / Camera.main.fieldOfView, 0.9f), 1);
+            }
+        }
         if (reactor.weaponPower && (reactor.power || reactor.batteryPower))
         {
             if (c % 10 == 0)
             {
-                if (ammo < maxAmmo)
+                if (c % 100 == 0 && ammo < maxAmmo)
                     ammo += bulletRegenRate;
                 if (ammo > maxAmmo)
                     ammo = maxAmmo;
@@ -272,14 +289,14 @@ public class gun : ShipObject
                 //Debug.Log("Rotate Gun " + rotateGun);
 
                 if (rotateGun.z > 0)
-                    ship.FireThrusters(ship.d_thrusters, rotateGun.z);
+                    ship.FireThrusters(ship.d_thrusters, rotateGun.z, 5);
                 else if (rotateGun.z < 0)
-                    ship.FireThrusters(ship.a_thrusters, -rotateGun.z);
+                    ship.FireThrusters(ship.a_thrusters, -rotateGun.z, 5);
 
                 if (rotateGun.x > 0)
-                    ship.FireThrusters(ship.s_thrusters, rotateGun.x);
+                    ship.FireThrusters(ship.s_thrusters, rotateGun.x, 5);
                 else if (rotateGun.x < 0)
-                    ship.FireThrusters(ship.w_thrusters, -rotateGun.x);
+                    ship.FireThrusters(ship.w_thrusters, -rotateGun.x, 5);
             }
 
             if (aimMode == 0 && targetLock != null && ship.activeGun != this)
@@ -296,7 +313,7 @@ public class gun : ShipObject
                 }
             }
 
-            if (shooting && (stationary || (!cancelShoot && !willHitShip)))
+            if (shooting && (stationary || !needsToAim || (!cancelShoot && !willHitShip)))
             {
                 //Debug.Log("Should shoot, c=" + c + " firedelay=" + fireDelay);
                 if (spinner != null)
@@ -309,10 +326,17 @@ public class gun : ShipObject
                     if (fireDelay/speedMult >= 50)
                         lastFired = Time.realtimeSinceStartup / Time.fixedDeltaTime;
                 }
-            } 
+            }
 
-            if (!stationary)
+            if (!stationary && (ship.activeGun == this || aimMode == 1 || (aimMode == 0 && (targetLock != null || !loose))))
+            {
+                LockServos();
                 RotateTurretToTarget();
+            }
+            else
+            {
+                UnlockServos();
+            }
         }
 
         if (c % 10 == 0 && Game.instance != null)
@@ -335,6 +359,32 @@ public class gun : ShipObject
         if (!(Game.instance != null && Game.instance.playbackRecording))
             shooting = false;
         cancelShoot = false;
+    }
+
+    //[NonSerialized]
+    //public bool activeGun = false;
+
+    public void LockServos()
+    {
+        if (servoPositions.Length > 0)
+        {
+            foreach (Servo.Position pos in servoPositions)
+            {
+                //pos.get().Move();
+                pos.servo.Lock(pos);
+            }
+        }
+    }
+
+    public void UnlockServos()
+    {
+        if (servoPositions.Length > 0)
+        {
+            foreach (Servo.Position pos in servoPositions)
+            {
+                pos.servo.Unlock();
+            }
+        }
     }
 
     public void StopShooting()
@@ -534,25 +584,95 @@ public class gun : ShipObject
                     }
                     break;
             }
+        } else if (turretType == 3 || turretType == 4)
+        {
+            // movingParts[0] = Shoulder Flap Opener
+            // movingParts[1] = Missile Rack Arm
+            // movingParts[2] = Missile Rack
+            // movingParts[3] = The Entire Missile Launcher
+            bool c = true;
+            int yeet = turretType == 4 ? -1 : 1;
+            switch (foldIndex)
+            {
+                case 0: // unfolded position
+                    //if (turret)
+                    //    c = AimLocal(new Vector3(0, 1.41f, 0f)) && c;
+                    c = RotateStep(movingParts[2], new Vector3(0, 0, 180 * yeet), 8f, false, true) && c; // Rotates missile racks outwards
+                    //Debug.Log("step 0");
+                    if (c)
+                    {
+                        folded = false;
+                        if (dir > 0)
+                        {
+                            foldIndex++;
+                            if (playSounds)
+                                unfoldSound.play(transform.position);
+                        }
+                    }
+                    break;
+                case 1:
+                    c = RotateStep(movingParts[2], new Vector3(0, 0, 90 * yeet), 8f, false, true) && c; // Rotates missile racks inwards
+                    if (c)
+                        foldIndex += dir;
+                    //Debug.Log("step 1");
+                    break;
+                case 2:
+                    c = TranslateStep(movingParts[1], new Vector3(0, 0, 0), 0.001f, true) && c; // Slides missile racks out
+                    c = RotateStep(movingParts[2], new Vector3(0, -90 * yeet, 90 * yeet), 8f, false, true) && c; // Rotates missile racks inwards
+                    //Debug.Log("step 2");
+                    if (c)
+                        foldIndex += dir;
+                    break;
+                case 3:
+                    c = RotateStep(movingParts[0], new Vector3(25*yeet, -90, 100), 4f, false, true) && c; // opens shoulder flaps
+                    c = TranslateStep(movingParts[1], new Vector3(0.0002f * yeet, -0.0006f, 0), 0.001f, true) && c; // Slides missile racks in
+                    //Debug.Log("step 3");
+                    if (c)
+                        foldIndex += dir;
+                    break;
+                case 4: // folded position
+                    c = RotateStep(movingParts[0], new Vector3(25*yeet, -90, 0), 4f, false, true) && c; // closes shoulder flaps
+                    c = TranslateStep(movingParts[1], new Vector3(0.0002f * yeet, -0.0006f, 0), 0.001f, true) && c; // Slides missile racks in
+                    //Debug.Log("step 4");
+                    if (c)
+                    {
+                        folded = true;
+                        if (dir < 0)
+                        {
+                            foldIndex--;
+                            if (playSounds)
+                                foldSound.play(transform.position);
+                        }
+                    }
+                    break;
+            }
         }
     }
 
-    bool RotateStep(GameObject obj, Vector3 rot, float speed)
+    bool RotateStep(GameObject obj, Vector3 rot, float speed, bool flip_y_z = false, bool funnyDiff = false)
     {
-        if (Vector3.Distance(obj.transform.localEulerAngles, rot) < speed * 1.5f)
+        if (flip_y_z)
+            rot = new Vector3(rot.x, rot.z, rot.y);
+        float dist = funnyDiff ? AngleDiff(FixAngle(obj.transform.localEulerAngles), FixAngle(rot)).magnitude : Vector3.Distance(obj.transform.localEulerAngles, rot);
+        //Debug.Log("Rot Distance = " + dist + " between " + obj.transform.localEulerAngles + " and " + rot);
+        if (dist < speed * 1.5f)
         {
             obj.transform.localEulerAngles = rot;
             return true;
         }
         else
-            obj.transform.localEulerAngles += (rot - obj.transform.localEulerAngles).normalized * speed;
+            obj.transform.localEulerAngles += (funnyDiff ? -AngleDiff(FixAngle(rot), FixAngle(obj.transform.localEulerAngles)) : rot - obj.transform.localEulerAngles).normalized * speed;
         //Debug.Log(obj.name + ", TargetRot = " + rot + ", CurrentRot = " + obj.transform.localEulerAngles + ", Remainder = " + Vector3.Distance(obj.transform.localEulerAngles, rot));
         return false;
     }
 
-    bool TranslateStep(GameObject obj, Vector3 trans, float speed)
+    bool TranslateStep(GameObject obj, Vector3 trans, float speed, bool flip_y_z = false)
     {
         speed *= 0.05f;
+
+        if (flip_y_z)
+            trans = new Vector3(trans.x, trans.z, trans.y);
+
         if (Vector3.Distance(obj.transform.localPosition, trans) < speed * 1.5f)
         {
             obj.transform.localPosition = trans;
@@ -684,6 +804,13 @@ public class gun : ShipObject
                 if (targetVel.magnitude < Game.instance.maxMissileSpeed * 0.95f)
                     targetAcc = target.GetComponent<Rigidbody>().GetAccumulatedForce() / target.GetComponent<Rigidbody>().mass;
             }
+        } else if (target.GetComponent<Missile>() != null)
+        {
+            targetVel = target.GetComponent<Missile>().getVelocity();
+            if (targetVel.magnitude > Game.instance.maxMissileSpeed)
+                targetVel = targetVel.normalized * Game.instance.maxMissileSpeed;
+            if (targetVel.magnitude < Game.instance.maxMissileSpeed * 0.95f)
+                targetAcc = target.GetComponent<Missile>().getAcceleration();
         }
         Vector3 velDiff = targetVel - ship.rb.velocity;
         float time = hitscan ? Time.fixedDeltaTime : Vector3.Distance(target.transform.position, transform.position) / muzzleVelocity;
@@ -726,7 +853,7 @@ public class gun : ShipObject
     void FireBullet()
     {
         //Debug.Log("Firing Bullet");
-        if (this.bullet == null) return;
+        if (this.bullet == null || ammo <= 0.001f) return;
 
         if (ship != null)
         {
@@ -780,6 +907,8 @@ public class gun : ShipObject
         //temp.transform.eulerAngles = barrel.transform.eulerAngles - Vector3.right*90;
         Particle tempParticle = temp.GetComponent<Particle>();
         Particle tempParticle2 = temp2.GetComponent<Particle>();
+        tempParticle.owner = ship;
+        tempParticle2.owner = ship;
         tempParticle.impactSound = impactSount;
         tempParticle.dmg = dmg;
         tempParticle.forMissile = true;
@@ -788,8 +917,8 @@ public class gun : ShipObject
         {
             tempParticle.velocity = ship.rb.velocity;
             StartCoroutine(tempParticle.HitscanFireRoutine());
-        }
-        tempParticle.velocity = barrel.transform.up * muzzleVelocity + ship.rb.velocity;
+        } else
+            tempParticle.velocity = barrel.transform.up * muzzleVelocity + ship.rb.velocity;
         if (turretType == 0)
             tempParticle2.velocity = barrel.transform.up * muzzleVelocity*0.2f + ship.rb.velocity;
         else if (turretType == 1)

@@ -6,6 +6,13 @@ using Random = UnityEngine.Random;
 
 public class Particle : MonoBehaviour
 {
+    public bool ownerImmune = false;
+    public float homingStr = 0;
+    public int maximumHomingVelocity = 60;
+    //[NonSerialized]
+    //public GameObject target;
+    [NonSerialized]
+    public SpaceShip owner;
     public GameObject spawnExplosion;
     public float explodeRange = 5;
     [NonSerialized]
@@ -46,6 +53,8 @@ public class Particle : MonoBehaviour
     public HitscanBlast[] hitscanBlasts;
 
     public float decay = 1;
+
+    public LineRenderer lineRenderer;
     
     [Serializable]
     public struct HitscanBlast
@@ -91,6 +100,9 @@ public class Particle : MonoBehaviour
         Vector3 pos = transform.position + transform.TransformDirection(hitscanDir) * hb.offset;
         Vector3 hitPos = transform.position;
 
+        bool leftBarrel = true;
+        Vector3 ogPos = pos;
+
         while (range > 0)
         {
             RaycastHit hit;
@@ -98,6 +110,12 @@ public class Particle : MonoBehaviour
             {
                 range -= Vector3.Distance(pos, hit.point);
                 pos = hit.point + hb.resolution * transform.TransformDirection(hitscanDir);
+                if (!leftBarrel)
+                {
+                    float travelDist = Vector3.Distance(ogPos, pos);
+                    if (travelDist > 1)
+                        leftBarrel = true;
+                }
                 if (!result.Contains(hit.collider))
                 {
                     result.Add(hit.collider);
@@ -117,6 +135,7 @@ public class Particle : MonoBehaviour
         {
             GameObject temp = GameObject.Instantiate(Resources.Load("Particles/Bullets/Beam")) as GameObject;
             Particle tempP = temp.GetComponent<Particle>();
+            tempP.velocity = velocity;
             tempP.lifetime = hb.lrLife;
             temp.transform.position = transform.position;
             LineRenderer lr = temp.GetComponent<LineRenderer>();
@@ -180,16 +199,25 @@ public class Particle : MonoBehaviour
         lifetime = Mathf.Max(1, lifetime);
         transform.localScale *= 1 + Random.Range(-randSize, randSize);
         velocity *= 1 + Random.Range(-randSpeed, randSpeed);
+        targetVelocity = velocity;
         
         //col = GetComponent<Collider>();
     }
 
     string recap = "";
+    Vector3 targetVelocity;
 
     // Update is called once per frame
     void FixedUpdate()
     {
         if (paused) return;
+        if (lineRenderer != null)
+        {
+            for (int i = 0; i < lineRenderer.positionCount; i++)
+            {
+                lineRenderer.SetPosition(i, lineRenderer.GetPosition(i) + velocity * Time.fixedDeltaTime);
+            }
+        }
         if (spawnExplosion != null && actualTarget != null && Vector3.Distance(transform.position, actualTarget.transform.position) < explodeRange)
             DoExplosion(transform.position, velocity/2);
         c += 1;
@@ -211,6 +239,21 @@ public class Particle : MonoBehaviour
             transform.localPosition += localVelocity * Time.fixedDeltaTime * Game.instance.rec.playbackSpeed;
         } else
         {
+            if (homingStr > 0.001f)
+            {
+                if (actualTarget != null)
+                {
+                    if (c % 5 == 0)
+                    {
+                        targetVelocity = (actualTarget.transform.position - transform.position).normalized * maximumHomingVelocity;
+                    }
+                    if (Vector3.Distance(targetVelocity, velocity) > homingStr * 1.2f)
+                        velocity += (targetVelocity - velocity).normalized * homingStr;
+                    else
+                        velocity = targetVelocity;
+                    //velocity += (actualTarget.transform.position - transform.position).normalized * homingStr;
+                }
+            }
             transform.position += velocity * Time.fixedDeltaTime;
             transform.localPosition += localVelocity * Time.fixedDeltaTime;
         }
@@ -228,6 +271,8 @@ public class Particle : MonoBehaviour
 
     public float TriggerEnter(Collider other, int code, Vector3 point = new Vector3()) // code 0 is the regular collider, code 1 is the collider for missiles, code 2 is stuff that shouldn't be destroyed in here (like hitscan)
     {
+        if (ownerImmune && other.GetComponentInParent<SpaceShip>() == owner)
+            return 1;
         if (point.magnitude < 0.0001f) point = transform.position;
         GameObject obj = other.gameObject;
         bool hitMissile = obj.GetComponentInParent<Missile>() != null || (obj.GetComponentInParent<SimpleMotionObject>() && obj.GetComponentInParent<SimpleMotionObject>().useMissileCollider) || obj.tag == "ShootTarget";
@@ -252,11 +297,13 @@ public class Particle : MonoBehaviour
             shipObj = obj.GetComponent<ShipObject>();
             i++;
         }
+
         if (shipObj != null)
         {
-            if (dealsDamage)
+            if (dealsDamage && !(hitscan && other.GetComponentInParent<SpaceShip>() != null && other.GetComponentInParent<SpaceShip>() == owner))
             {
                 //recap += dmg.GetCombinedDamage() + " dmg to " + shipObj.name + ", ";
+                //Debug.Log(other + " damaged by " + this);
                 dmg = shipObj.Damage(dmg, other.ClosestPoint(point), decay);
                 DoExplosion(point, shipObj.rb != null ? shipObj.rb.velocity : Vector3.zero);
                 //recap += "HP=" + Mathf.Round(shipObj.GetHP()) + "; ";

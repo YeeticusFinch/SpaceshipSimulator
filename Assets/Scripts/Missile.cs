@@ -37,16 +37,16 @@ public class Missile : SpaceObject
 
     public GameObject target;
 
-    bool checkedForRB;
+    protected bool checkedForRB;
     [NonSerialized]
     public bool chasing = false;
-    Rigidbody targetRB;
+    protected Rigidbody targetRB;
     //[NonSerialized]
     //public Rigidbody rb;
 
-    Vector3 targetPos;
-    Vector3 targetRot;
-    Vector3 targetVel;
+    protected Vector3 targetPos;
+    protected Vector3 targetRot;
+    protected Vector3 targetVel;
 
     public Explosion explosion;
     public float explodeRange = 5;
@@ -96,8 +96,8 @@ public class Missile : SpaceObject
     public Thruster[] alt_space_thrusters;
     public Thruster[] alt_shift_thrusters;
 
-    float speedTol = 5;
-    float angleTol = 2;
+    protected float speedTol = 5;
+    protected float angleTol = 2;
 
     public int grace = 5;
 
@@ -128,11 +128,26 @@ public class Missile : SpaceObject
         Destroy(this.gameObject);
     }
 
-    Vector3 velDiff;
-    Vector3 relRot;
-    Vector3 localTarget;
+    public virtual void setVelocity(Vector3 vel)
+    {
+        rb.velocity = vel;
+    }
 
-    int c = 0;
+    public virtual Vector3 getVelocity()
+    {
+        return rb.velocity;
+    }
+
+    public virtual Vector3 getAcceleration()
+    {
+        return rb.GetAccumulatedForce() / rb.mass;
+    }
+
+    protected Vector3 velDiff;
+    Vector3 relRot;
+    protected Vector3 localTarget;
+
+    protected int c = 0;
 
     // Update is called once per frame
     void FixedUpdate()
@@ -201,6 +216,10 @@ public class Missile : SpaceObject
             }
             if (targetRB != null)
                 targetVel = targetRB.velocity;
+            else if (target.GetComponent<Missile>() != null)
+            {
+                targetVel = target.GetComponent<Missile>().getVelocity();
+            }
             else
                 targetVel = Vector3.zero;
 
@@ -270,6 +289,10 @@ public class Missile : SpaceObject
             Vector3 posMod = Vector3.zero;
             if (targetRB != null)
                 posMod = targetRB.velocity * Time.fixedDeltaTime * Vector3.Distance(rb.position, targetRB.position) * leadFac;
+            else if (target.GetComponent<Missile>() != null)
+            {
+                posMod = target.GetComponent<Missile>().getVelocity() * Time.fixedDeltaTime * Vector3.Distance(rb.position, target.transform.position) * leadFac;
+            }
             //posMod = Vector3.zero;
             //Debug.Log(name + " posmod=" + posMod);
             TurnToPoint(targetPos + posMod, relRot);
@@ -282,9 +305,9 @@ public class Missile : SpaceObject
         }
     }
 
-    private void OnCollisionEnter(Collision collision)
+    protected void OnCollisionEnter(Collision collision)
     {
-        return;
+        //return;
         if (collision.collider != null && ((collision.collider.GetComponentInParent<SpaceShip>() != null && collision.collider.GetComponentInParent<SpaceShip>() == owner)) || (owner.rb != null && rb != null && Vector3.Distance(owner.rb.position, rb.position) < explodeRange))
             return;
         else if (armed)
@@ -297,7 +320,7 @@ public class Missile : SpaceObject
         }
     }
 
-    bool SeeTarget()
+    protected virtual bool SeeTarget()
     {
         foreach (Targeter t in targeters)
         {
@@ -309,7 +332,7 @@ public class Missile : SpaceObject
         return false;
     }
 
-    private void TurnToPointNew(Vector3 target, Vector3 relRot)
+    protected virtual void TurnToPointNew(Vector3 target, Vector3 relRot)
     {
         target = target - transform.position;
         target = target.normalized;
@@ -345,7 +368,7 @@ public class Missile : SpaceObject
         PID2(targetRot.z / 180f, relRot.z, a_thrusters, d_thrusters, 10, 2);
     }
 
-    public void TurnToPoint(Vector3 target, Vector3 relRot)
+    public virtual void TurnToPoint(Vector3 target, Vector3 relRot)
     {
         target = target - transform.position;
         target = target.normalized;
@@ -368,7 +391,7 @@ public class Missile : SpaceObject
         //Debug.Log("relRot=" + relRot);
     }
 
-    private void TurnToPointOld2(Vector3 target, Vector3 relRot)
+    protected void TurnToPointOld2(Vector3 target, Vector3 relRot)
     {
         Vector3 targetLocal = transform.InverseTransformPoint(target);
         //Debug.Log(target);
@@ -408,14 +431,14 @@ public class Missile : SpaceObject
         PID2(-targetLocal.z, relRot.x, w_thrusters, s_thrusters, 10, 3);
     }
 
-    public void MomentumRotate(Vector3 rot)
+    public virtual void MomentumRotate(Vector3 rot)
     {
         transform.Rotate(Vector3.right, rot.x);
         transform.Rotate(Vector3.up, rot.y);
         transform.Rotate(Vector3.forward, rot.z);
     }
 
-    public void FireThrusters(Thruster[] thrusters, float power)
+    public virtual void FireThrusters(Thruster[] thrusters, float power)
     {
         if (!canMove) return;
         if (Game.instance.record)
@@ -440,7 +463,7 @@ public class Missile : SpaceObject
                 t.StopThrust();
     }
 
-    private void StabalizeRotation(Vector3 relRot, float Kp)
+    protected void StabalizeRotation(Vector3 relRot, float Kp)
     {
         float speedTol = this.speedTol * 0.5f;
         if (momentumTurn)
@@ -474,7 +497,7 @@ public class Missile : SpaceObject
         }
     }
 
-    private void StabalizePosition(Vector3 relVel, float Kp, bool useMainDrive)
+    protected void StabalizePosition(Vector3 relVel, float Kp, bool useMainDrive)
     {
         if (relVel.z > speedTol)
         {
@@ -509,17 +532,17 @@ public class Missile : SpaceObject
         }
     }
 
-    private float prev_error_rot = -1;
-    private int rot_dir = 0;
+    protected float prev_error_rot = -1;
+    protected int rot_dir = 0;
 
     public float Kp = 1.5f;
 
-    private void PID(float error, float errorTol, Thruster[] thrusters)
+    protected void PID(float error, float errorTol, Thruster[] thrusters)
     {
         PID(error, errorTol, thrusters, this.Kp);
     }
 
-    private void PID(float error, float errorTol, Thruster[] thrusters, float Kp)
+    protected void PID(float error, float errorTol, Thruster[] thrusters, float Kp)
     {
         if (!canMove) return;
         error = error * Mathf.Sign(errorTol);
@@ -534,7 +557,7 @@ public class Missile : SpaceObject
         }
     }
 
-    private void PID(float error, float errorTol, Thruster[] thrusters, float Kp, float max)
+    protected void PID(float error, float errorTol, Thruster[] thrusters, float Kp, float max)
     {
         if (!canMove) return;
         error = error * Mathf.Sign(errorTol);
@@ -551,7 +574,7 @@ public class Missile : SpaceObject
         }
     }
 
-    private void PID2(float error, float deltaError, Thruster[] pos, Thruster[] neg, float Kp, float Kd)
+    protected void PID2(float error, float deltaError, Thruster[] pos, Thruster[] neg, float Kp, float Kd)
     {
         if (!canMove) return;
         float result = Kp * error + Kd * deltaError;
@@ -570,7 +593,7 @@ public class Missile : SpaceObject
                 t.Thrust(-result);
     }
 
-    private void OnDestroy()
+    protected void OnDestroy()
     {
         if (Game.instance.record)
         {
@@ -599,14 +622,14 @@ public class Missile : SpaceObject
         Destroy(camOrbit);
     }
 
-    IEnumerator DestroyIn(GameObject dest, float delay)
+    protected IEnumerator DestroyIn(GameObject dest, float delay)
     {
         yield return new WaitForSeconds(delay);
         GameObject.Destroy(dest);
     }
 
-    LineRenderer[] lineRenderer = null;
-    void drawLine(int id, Vector3 a, Vector3 b, Material material = null)
+    protected LineRenderer[] lineRenderer = null;
+    protected void drawLine(int id, Vector3 a, Vector3 b, Material material = null)
     {
         if (lineRenderer == null) lineRenderer = new LineRenderer[4];
         if (material == null)
