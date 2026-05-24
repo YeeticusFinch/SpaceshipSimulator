@@ -57,6 +57,8 @@ public class gun : ShipObject
     public GameObject z_axis;
 
     public GameObject barrel;
+    public GameObject barrel2;
+    bool fireFromPrimaryBarrelNext = true;
 
     public Light flashlight;
     public Light flashlight2;
@@ -647,6 +649,65 @@ public class gun : ShipObject
                     break;
             }
         }
+        else if (turretType == 5)
+        {
+            bool c = true;/*
+            Debug.Log("FoldIndex = " + foldIndex);
+            Debug.Log("Folded = " + folded);
+            Debug.Log("Fold = " + fold);
+            Debug.Log("Dir = " + dir);*/
+            switch (foldIndex)
+            {
+                case 0: // Unfolded Position
+                    c = TranslateStep(movingParts[0], new Vector3(0, 0, 0), 0.01f) && c;
+                    c = TranslateStep(movingParts[1], new Vector3(0.00028f, -0.0181f, 0.0043f), 0.01f) && c;
+                    //c = TranslateStep(movingParts[2], new Vector3(0, 0.0108f, -0.0128f), 0.01f) && c;
+                    //c = RotateStep(movingParts[1], new Vector3(-90, 0, 0), 5) && c;
+                    //c = c && RotateStep(movingParts[2], new Vector3(-90, 0, 0), 5);
+                    //c = RotateStep(movingParts[2], new Vector3(270, 0, 0), 5) && c;
+                    c = AimLocal(new Vector3(0, 1.41f, 0f)) && c;
+                    if (c)
+                    {
+                        folded = false;
+                        if (dir > 0)
+                        {
+                            foldIndex++;
+                            if (playSounds)
+                                unfoldSound.play(transform.position);
+                        }
+                    }
+                    break;
+                case 1: // Slide Doors upwardsand turret downwards
+                    c = TranslateStep(movingParts[0], new Vector3(0, 0, -0.0167f), 0.01f) && c;
+                    c = TranslateStep(movingParts[1], new Vector3(0.00028f, -0.0181f, 0.0043f), 0.01f) && c;
+                    //c = TranslateStep(movingParts[2], new Vector3(0, 0.0108f, -0.0003632093f), 0.01f) && c;
+                    //c = RotateStep(movingParts[1], new Vector3(90, 0, 0), 5) && c;
+                    //c = RotateStep(movingParts[2], new Vector3(-90, 0, 0), 5) && c;
+                    //c = RotateStep(movingParts[2], new Vector3(270, 0, 0), 5) && c;
+                    c = AimLocal(new Vector3(0, 1.41f, 0f)) && c;
+                    if (c)
+                        foldIndex += dir;
+                    break;
+                case 2: // Close Doors
+                    c = TranslateStep(movingParts[0], new Vector3(0, 0, -0.0167f), 0.01f) && c;
+                    c = TranslateStep(movingParts[1], new Vector3(0.00028f, 0f, 0.0043f), 0.01f) && c;
+                    //c = TranslateStep(movingParts[2], new Vector3(0, 0.0108f, -0.0003632093f), 0.01f) && c;
+                    //c = RotateStep(movingParts[1], new Vector3(0, 0, 0), 5) && c;
+                    //c = RotateStep(movingParts[2], new Vector3(359, 0, 0), 5) && c;
+                    c = AimLocal(new Vector3(0, 1.41f, 0f)) && c;
+                    if (c)
+                    {
+                        folded = true;
+                        if (dir < 0)
+                        {
+                            foldIndex--;
+                            if (playSounds)
+                                foldSound.play(transform.position);
+                        }
+                    }
+                    break;
+            }
+        }
     }
 
     bool RotateStep(GameObject obj, Vector3 rot, float speed, bool flip_y_z = false, bool funnyDiff = false)
@@ -854,6 +915,12 @@ public class gun : ShipObject
     {
         //Debug.Log("Firing Bullet");
         if (this.bullet == null || ammo <= 0.001f) return;
+        GameObject firingBarrel = barrel;
+        if (barrel2 != null)
+        {
+            firingBarrel = fireFromPrimaryBarrelNext ? barrel : barrel2;
+            fireFromPrimaryBarrelNext = !fireFromPrimaryBarrelNext;
+        }
 
         if (ship != null)
         {
@@ -864,7 +931,7 @@ public class gun : ShipObject
         if (playSounds)
         {
             //Debug.Log("playing sound");
-            shootSound.play(barrel.transform.position);
+            shootSound.play(firingBarrel.transform.position);
         }
 
         GameObject bullet = this.bullet;
@@ -890,8 +957,8 @@ public class gun : ShipObject
         }
 
         //Debug.Log("Shooting");
-        GameObject temp = GameObject.Instantiate(bullet, barrel.transform) as GameObject;
-        GameObject temp2 = GameObject.Instantiate(muzzleFlash, barrel.transform) as GameObject;
+        GameObject temp = GameObject.Instantiate(bullet, firingBarrel.transform) as GameObject;
+        GameObject temp2 = GameObject.Instantiate(muzzleFlash, firingBarrel.transform) as GameObject;
         //temp2.transform.position = barrel.transform.position + ship.rb.velocity * Time.fixedDeltaTime;
         //temp.transform.position = barrel.transform.position + ship.rb.velocity*Time.fixedDeltaTime;
         //temp.transform.localPosition = ship.rb.velocity * Time.fixedDeltaTime;
@@ -918,13 +985,13 @@ public class gun : ShipObject
             tempParticle.velocity = ship.rb.velocity;
             StartCoroutine(tempParticle.HitscanFireRoutine());
         } else
-            tempParticle.velocity = barrel.transform.up * muzzleVelocity + ship.rb.velocity;
+            tempParticle.velocity = firingBarrel.transform.up * muzzleVelocity + ship.rb.velocity;
         if (turretType == 0)
-            tempParticle2.velocity = barrel.transform.up * muzzleVelocity*0.2f + ship.rb.velocity;
+            tempParticle2.velocity = firingBarrel.transform.up * muzzleVelocity*0.2f + ship.rb.velocity;
         else if (turretType == 1)
             tempParticle2.velocity = ship.rb.velocity;
 
-        ship.rb.AddForceAtPosition(-barrel.transform.up * recoil, barrel.transform.position, ForceMode.Impulse);
+        ship.rb.AddForceAtPosition(-firingBarrel.transform.up * recoil, firingBarrel.transform.position, ForceMode.Impulse);
         ammo--;
     }
 

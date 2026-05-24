@@ -23,6 +23,42 @@ public class Panel : MonoBehaviour
     public Panel superiorPanel;
     [NonSerialized]
     public Panel[] subpanels3;
+    
+    int GetConfigSlotIndex()
+    {
+        if (id < 0)
+            return -id - 1;
+        return -1;
+    }
+
+    bool IsConfigSubPanel()
+    {
+        return superiorPanel != null && superiorPanel.id == 6 && id < 0;
+    }
+
+    SpaceShip GetConfigSubShip()
+    {
+        if (!IsConfigSubPanel() || player == null || player.ship == null || player.ship.subShips == null)
+            return null;
+        int slotIndex = GetConfigSlotIndex();
+        if (slotIndex < 0 || slotIndex >= player.ship.subShips.Length)
+            return null;
+        return player.ship.subShips[slotIndex];
+    }
+
+    void UpdateConfigSubPanelTitle()
+    {
+        if (!IsConfigSubPanel() || transform.childCount == 0)
+            return;
+        TextMeshProUGUI title = transform.GetChild(0).GetComponent<TextMeshProUGUI>();
+        if (title == null)
+            return;
+        SpaceShip sub = GetConfigSubShip();
+        if (sub == null)
+            title.text = "Empty Slot";
+        else
+            title.text = "[" + (GetConfigSlotIndex() + 1) + "] " + sub.name;
+    }
 
     // Start is called before the first frame update
     void Start()
@@ -107,6 +143,34 @@ public class Panel : MonoBehaviour
                 subpanels3[i + 1].id = -(i + 2);
                 subpanels3[i + 1].superiorPanel = this;
                 subpanels3[i + 1].subpanels = subpanels;
+            }
+        } else if (id == 6) // Configuration Panel
+        {
+            int subShipCount = (player.ship.subShips == null ? 0 : player.ship.subShips.Length);
+            subpanels = new Panel[subShipCount];
+            if (subShipCount == 0)
+            {
+                if (specialPanels != null && specialPanels.Length > 0 && specialPanels[0] != null && specialPanels[0].transform.childCount > 0)
+                {
+                    TextMeshProUGUI title = specialPanels[0].transform.GetChild(0).GetComponent<TextMeshProUGUI>();
+                    if (title != null)
+                        title.text = "No Sub Ships Available";
+                }
+                return;
+            }
+            subpanels[0] = specialPanels[0];
+            for (int i = 0; i < subShipCount; i++)
+            {
+                if (i > 0)
+                {
+                    GameObject newPanel = GameObject.Instantiate(subpanels[0].gameObject, transform) as GameObject;
+                    subpanels[i] = newPanel.GetComponent<Panel>();
+                    newPanel.SetActive(false);
+                }
+                subpanels[i].id = -(i + 1);
+                subpanels[i].superiorPanel = this;
+                subpanels[i].subpanels = subpanels;
+                subpanels[i].UpdateConfigSubPanelTitle();
             }
         }
     }
@@ -305,6 +369,24 @@ public class Panel : MonoBehaviour
                     } else
                     {
                         player.ship.turrets[currentIndex].fold = !player.ship.turrets[currentIndex].fold;
+                    }
+                }
+                break;
+            case "launcher_fold":
+                if (!locked)
+                {
+                    if (player.ship.launchers == null || player.ship.launchers.Length == 0)
+                        break;
+                    int currentIndex = -this.id - 2;
+                    if (this.id == -1)
+                    {
+                        player.ship.launchers[0].fold = !player.ship.launchers[0].fold;
+                        foreach (MissileLauncher l in player.ship.launchers)
+                            l.fold = player.ship.launchers[0].fold;
+                    }
+                    else if (currentIndex >= 0 && currentIndex < player.ship.launchers.Length)
+                    {
+                        player.ship.launchers[currentIndex].fold = !player.ship.launchers[currentIndex].fold;
                     }
                 }
                 break;
@@ -522,6 +604,10 @@ public class Panel : MonoBehaviour
             case "next":
                 if (!locked)
                 {
+                    if (superiorPanel == null || superiorPanel.subpanels == null || superiorPanel.subpanels.Length == 0)
+                        break;
+                    if (superiorPanel.subpanels.Length == 1)
+                        break;
                     int currentIndex = -this.id - 1;
                     int nextIndex = 0;
                     if (this.id == -1) {
@@ -537,6 +623,10 @@ public class Panel : MonoBehaviour
             case "previous":
                 if (!locked)
                 {
+                    if (superiorPanel == null || superiorPanel.subpanels == null || superiorPanel.subpanels.Length == 0)
+                        break;
+                    if (superiorPanel.subpanels.Length == 1)
+                        break;
                     int currentIndex = -this.id - 1;
                     int nextIndex = 0;
                     if (this.id == -1)
@@ -672,6 +762,28 @@ public class Panel : MonoBehaviour
                     //Debug.Log("TraceGun");
                 }
                 break;
+            case "dock":
+                if (!locked)
+                {
+                    player.ship.DockSubShip();
+                }
+                break;
+            case "eject_as_npc":
+                if (!locked && IsConfigSubPanel())
+                {
+                    int slotIndex = GetConfigSlotIndex();
+                    if (slotIndex >= 0)
+                        player.ship.EjectSubShip(slotIndex, false);
+                }
+                break;
+            case "eject_as_player":
+                if (!locked && IsConfigSubPanel())
+                {
+                    int slotIndex = GetConfigSlotIndex();
+                    if (slotIndex >= 0)
+                        player.ship.EjectSubShip(slotIndex, true);
+                }
+                break;
             case "":
                 if (!locked)
                 {
@@ -685,6 +797,8 @@ public class Panel : MonoBehaviour
     {
         if (player == null || player.ship == null)
             return;
+        if (IsConfigSubPanel())
+            UpdateConfigSubPanelTitle();
         foreach (Button b in GetComponentsInChildren<Button>())
         {
             TextMeshProUGUI t = b.GetComponentInChildren<TextMeshProUGUI>();
@@ -1037,7 +1151,7 @@ public class Panel : MonoBehaviour
 
     public float GetUpdatedValue(string id)
     {
-        if (player == null || player.ship == null || player.ship.rb == null)
+        if (player == null || player.ship == null)
             return 0;
         switch (id)
         {
@@ -1050,8 +1164,10 @@ public class Panel : MonoBehaviour
             case "reactor_stability":
                 return player.ship.reactor.reactorStability;
             case "ship_velocity_magnitude":
+                if (player.ship.rb == null) return 0;
                 return player.ship.rb.velocity.magnitude;
             case "ship_acceleration_magnitude":
+                if (player.ship.rb == null) return 0;
                 return player.ship.acceleration.magnitude;
             case "launcher_health":
                 if (player.ship.launchers.Length == 0) return 0;
@@ -1133,6 +1249,76 @@ public class Panel : MonoBehaviour
                 {
                     int currentIndex = -this.id - 2;
                     return player.ship.statGuns[currentIndex].ammo;
+                }
+            case "subship_health":
+                {
+                    SpaceShip sub = GetConfigSubShip();
+                    if (sub == null)
+                        return 0;
+                    float hp = 0;
+                    float maxHp = 0;
+                    if (sub.hull != null)
+                    {
+                        foreach (ShipObject h in sub.hull)
+                        {
+                            if (h == null) continue;
+                            hp += Mathf.Max(0, h.HP);
+                            maxHp += Mathf.Max(0.001f, h.maxHP);
+                        }
+                    }
+                    if (sub.reactor != null)
+                    {
+                        hp += Mathf.Max(0, sub.reactor.HP);
+                        maxHp += Mathf.Max(0.001f, sub.reactor.maxHP);
+                    }
+                    if (maxHp <= 0.001f)
+                        return 0;
+                    return Mathf.Clamp(100f * hp / maxHp, 0, 100);
+                }
+            case "subship_ammo":
+                {
+                    SpaceShip sub = GetConfigSubShip();
+                    if (sub == null)
+                        return 0;
+                    float ammo = 0;
+                    float maxAmmo = 0;
+                    if (sub.turrets != null)
+                    {
+                        foreach (gun g in sub.turrets)
+                        {
+                            if (g == null) continue;
+                            ammo += Mathf.Max(0, g.ammo);
+                            maxAmmo += Mathf.Max(0, g.maxAmmo);
+                        }
+                    }
+                    if (sub.statGuns != null)
+                    {
+                        foreach (gun g in sub.statGuns)
+                        {
+                            if (g == null) continue;
+                            ammo += Mathf.Max(0, g.ammo);
+                            maxAmmo += Mathf.Max(0, g.maxAmmo);
+                        }
+                    }
+                    if (sub.launchers != null)
+                    {
+                        foreach (MissileLauncher l in sub.launchers)
+                        {
+                            if (l == null) continue;
+                            ammo += Mathf.Max(0, l.ammo);
+                            maxAmmo += Mathf.Max(0, l.maxAmmo);
+                        }
+                    }
+                    if (maxAmmo <= 0.001f)
+                        return 0;
+                    return Mathf.Clamp(100f * ammo / maxAmmo, 0, 100);
+                }
+            case "subship_battery":
+                {
+                    SpaceShip sub = GetConfigSubShip();
+                    if (sub == null || sub.reactor == null || sub.reactor.batteryCapacity <= 0)
+                        return 0;
+                    return Mathf.Clamp(100f * sub.reactor.batteryAmount / sub.reactor.batteryCapacity, 0, 100);
                 }
         }
         return 0;

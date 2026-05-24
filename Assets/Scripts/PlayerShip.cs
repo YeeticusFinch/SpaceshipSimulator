@@ -345,9 +345,9 @@ public class PlayerShip : MonoBehaviour
                 {
                     //Debug.Log("TargetLockClick");
                     Indicator closestTarget = null;
-                    foreach (Indicator o in GameObject.FindObjectsOfType(typeof(Indicator)))
+                    foreach (Indicator o in Indicator.ActiveIndicators)
                     {
-                        if (o != targetLocker && o.GetComponentInChildren<TextMeshProUGUI>().text != targetLocker.GetComponentInChildren<TextMeshProUGUI>().text)
+                        if (o != null && o != targetLocker && o.GetComponentInChildren<TextMeshProUGUI>().text != targetLocker.GetComponentInChildren<TextMeshProUGUI>().text)
                         {
                             if (closestTarget == null)
                                 closestTarget = o;
@@ -501,6 +501,39 @@ public class PlayerShip : MonoBehaviour
         cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
         thirdPerson = false;
         cam.fieldOfView = Yeet.fieldOfView;
+    }
+
+    public void CaptureTransferCameraState(out bool wasThirdPerson, out int previousCamIndex)
+    {
+        wasThirdPerson = thirdPerson;
+        previousCamIndex = camIndex;
+    }
+
+    public void RestoreTransferCameraState(bool wasThirdPerson, int previousCamIndex)
+    {
+        if (ship == null || cam == null || ship.cameras == null || ship.cameras.Length == 0)
+            return;
+        if (turretMode)
+        {
+            ship.activeGun = null;
+            turretMode = false;
+        }
+        if (cannonMode)
+        {
+            if (ship.activeGun != null)
+                ship.activeGun.rotateShip = false;
+            ship.activeGun = null;
+            cannonMode = false;
+        }
+
+        camIndex = Mathf.Clamp(previousCamIndex, 0, ship.cameras.Length - 1);
+        thirdPerson = false;
+        cam.transform.parent = ship.cameras[camIndex].transform;
+        cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+        cam.fieldOfView = Yeet.fieldOfView;
+
+        if (wasThirdPerson)
+            Toggle3rdPersonCamera();
     }
 
     public void SwitchTab(int tab)

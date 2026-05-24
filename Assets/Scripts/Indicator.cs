@@ -6,6 +6,7 @@ using UnityEngine.UI;
 
 public class Indicator : MonoBehaviour
 {
+    public static readonly HashSet<Indicator> ActiveIndicators = new HashSet<Indicator>();
 
     public GameObject target;
     public Camera cam;
@@ -30,6 +31,16 @@ public class Indicator : MonoBehaviour
         canvasRect = canvas.GetComponent<RectTransform>();
         img = GetComponent<Image>();
         txt = GetComponent<TextMeshProUGUI>();
+    }
+
+    private void OnEnable()
+    {
+        ActiveIndicators.Add(this);
+    }
+
+    private void OnDisable()
+    {
+        ActiveIndicators.Remove(this);
     }
 
     bool visible = false;

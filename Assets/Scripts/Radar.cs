@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class Radar : ShipObject
 {
+    private static readonly Queue<LineRenderer> linePool = new Queue<LineRenderer>();
     public GameObject point;
     public int range = 100;
     public float electricNoise = 0.4f;
@@ -43,15 +44,25 @@ public class Radar : ShipObject
         SpaceShip oShip = obj.GetComponent<SpaceShip>();
         if (oShip != null)
         {
+            if (oShip.stealthFactor >= 1f)
+                return false;
+            if (oShip.stealthFactor <= -1f)
+            {
+                if (oShip.playerShip && oShip != ship)
+                    oShip.player.addAlert("Incoming radar ping", Color.gray);
+                return true;
+            }
+
             if (oShip.electricNoise > 20)
                 boost *= 1 + (oShip.electricNoise * Random.Range(0.8f, 1.2f) - 20) * 0.15f;
             else
             {
                 boost *= 1 - (20 - oShip.electricNoise) / 19f;
             }
+            boost *= (1f - oShip.stealthFactor);
             if (oShip.radarOn)
                 boost *= 1.5f;
-            if (oShip.mainDrive.Thrusting())
+            if (oShip.mainDrive != null && oShip.mainDrive.Thrusting())
                 boost *= 1 + oShip.mainDrive.thrustAmount * Random.Range(2, 4);
         }
 
@@ -108,8 +119,19 @@ public class Radar : ShipObject
 
     void drawLine(Vector3 a, Vector3 b)
     {
-        //Debug.Log("Drawing line");
-        LineRenderer lineRenderer = new GameObject("RadarLine").AddComponent<LineRenderer>();
+        LineRenderer lineRenderer;
+        if (linePool.Count > 0)
+        {
+            lineRenderer = linePool.Dequeue();
+            if (lineRenderer == null)
+                lineRenderer = new GameObject("RadarLine").AddComponent<LineRenderer>();
+            else
+                lineRenderer.gameObject.SetActive(true);
+        }
+        else
+        {
+            lineRenderer = new GameObject("RadarLine").AddComponent<LineRenderer>();
+        }
         if (GetComponent<Targeter>() != null)
         {
             lineRenderer.startColor = Color.red;
@@ -141,13 +163,18 @@ public class Radar : ShipObject
     {
         float fadeDuration = 0.5f;
         float fadePeriod = 0.1f;
+        float initialWidth = 0.01f;
         for (float i = 0; i < fadeDuration/fadePeriod; i += fadePeriod)
         {
             l.startWidth *= 0.5f;
             l.endWidth *= 0.5f;
             yield return new WaitForSeconds(fadePeriod);
         }
-        Destroy(l.gameObject);
+        l.startWidth = initialWidth;
+        l.endWidth = initialWidth;
+        l.positionCount = 0;
+        l.gameObject.SetActive(false);
+        linePool.Enqueue(l);
 
     }
 }

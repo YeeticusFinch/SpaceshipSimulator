@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class SpaceObject : MonoBehaviour
 {
+    public static readonly HashSet<SpaceObject> ActiveObjects = new HashSet<SpaceObject>();
     public string prefabPath = "";
 
     [NonSerialized]
@@ -41,6 +42,16 @@ public class SpaceObject : MonoBehaviour
             Game.instance.rec.LogObject(this);
     }
 
+    protected void OnEnable()
+    {
+        ActiveObjects.Add(this);
+    }
+
+    protected void OnDisable()
+    {
+        ActiveObjects.Remove(this);
+    }
+
 
     protected void OnCollisionEnter(Collision collision)
     {
@@ -63,15 +74,18 @@ public class SpaceObject : MonoBehaviour
                 Yeet.Dmg dmg = new Yeet.Dmg(0.05f * relVel, 4 * relVel, 0.01f * relVel, 0.3f * relVel, 0, 1 * relVel, 0);
                 o.Damage(dmg, pos, 1);
 
-                GameObject dmgInd = Instantiate(Game.instance.DmgIndicator) as GameObject;
-                //dmgInd.tag = "Damager";
-                dmgInd.transform.position = pos;
-                dmgInd.transform.localScale *= dmg.GetCombinedDamage();
-                dmgInd.name = "Dmger";
-                dmgInd.GetComponent<Particle>().dealsDamage = true;
-                dmgInd.GetComponent<Particle>().dmg = dmg;
-                if (rb != null)
-                    dmgInd.GetComponent<Particle>().velocity = rb.velocity;
+                if (Game.instance != null && Game.instance.DmgIndicator != null)
+                {
+                    GameObject dmgInd = Instantiate(Game.instance.DmgIndicator) as GameObject;
+                    //dmgInd.tag = "Damager";
+                    dmgInd.transform.position = pos;
+                    dmgInd.transform.localScale *= dmg.GetCombinedDamage();
+                    dmgInd.name = "Dmger";
+                    dmgInd.GetComponent<Particle>().dealsDamage = true;
+                    dmgInd.GetComponent<Particle>().dmg = dmg;
+                    if (rb != null)
+                        dmgInd.GetComponent<Particle>().velocity = rb.velocity;
+                }
             }
         }
     }

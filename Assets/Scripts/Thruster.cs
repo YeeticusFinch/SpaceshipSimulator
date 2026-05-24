@@ -13,6 +13,7 @@ public class Thruster : ShipObject
     public bool fake = false;
     public bool needsReactor = false;
     public bool copyThrusterGroup = true;
+    public float copyMultiplier = 1;
     public bool mainDrive = false;
     public bool teaKettle = false;
     public bool misc = false;
@@ -54,7 +55,7 @@ public class Thruster : ShipObject
 
     public void GrabValues(Thruster other)
     {
-        power = other.power;
+        power = other.power * copyMultiplier;
         thrustOffsetY = other.thrustOffsetY;
         thrust = other.thrust;
         parentThrustToThruster = other.parentThrustToThruster;
@@ -134,6 +135,13 @@ public class Thruster : ShipObject
     private void FixedUpdate()
     {
         base.FixedUpdate();
+        if (!forMissile && ship != null && (ship.trophy || ship.shipDisabled))
+        {
+            thrustAmount = 0;
+            if (thrusterLight != null)
+                thrusterLight.intensity = 0;
+            return;
+        }
         if (!fake && Game.instance != null && Game.instance.atmosphere && smoker == null)
         {
             smoker = Instantiate(Resources.Load("Smoke Particle") as GameObject).GetComponent<ParticleSystem>();
@@ -267,6 +275,8 @@ public class Thruster : ShipObject
 
     private void PerformThrust()
     {
+        if (!forMissile && ship != null && (ship.trophy || ship.shipDisabled))
+            return;
         float amount = Mathf.Clamp(thrustAmount, 0, 1);
 
         if (!forMissile)
@@ -326,5 +336,53 @@ public class Thruster : ShipObject
     public void Thrust()
     {
         Thrust(1);
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (Application.isPlaying)
+            return;
+
+        Vector3 origin = (useThrustPos && thrustPos != null) ? thrustPos.transform.position : transform.position;
+        Vector3 arrowDir = -GetEditorForceDirection();
+        float minLength = 0.4f;
+        float maxLength = 3.0f;
+        float length = Mathf.Clamp(Mathf.Lerp(minLength, maxLength, Mathf.Clamp01(power / 1200f)), minLength, maxLength);
+        Vector3 tip = origin + arrowDir * length;
+
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawLine(origin, tip);
+
+        Vector3 right = Vector3.Cross(arrowDir, Vector3.up);
+        if (right.sqrMagnitude < 0.0001f)
+            right = Vector3.Cross(arrowDir, Vector3.right);
+        right.Normalize();
+        Vector3 up = Vector3.Cross(right, arrowDir).normalized;
+        float headLen = Mathf.Clamp(length * 0.16f, 0.12f, 0.5f);
+
+        Gizmos.DrawLine(tip, tip - arrowDir * headLen + right * headLen * 0.6f);
+        Gizmos.DrawLine(tip, tip - arrowDir * headLen - right * headLen * 0.6f);
+        Gizmos.DrawLine(tip, tip - arrowDir * headLen + up * headLen * 0.6f);
+        Gizmos.DrawLine(tip, tip - arrowDir * headLen - up * headLen * 0.6f);
+    }
+
+    private Vector3 GetEditorForceDirection()
+    {
+        Vector3 forceDir = transform.up;
+        if (!snapThrust)
+            return forceDir.normalized;
+
+        SpaceShip parentShip = ship != null ? ship : GetComponentInParent<SpaceShip>();
+        if (parentShip == null)
+            return forceDir.normalized;
+
+        Vector3 result = parentShip.transform.InverseTransformDirection(forceDir).normalized;
+        if (Mathf.Abs(result.x) > 0.8f && Mathf.Abs(result.y) < 0.2f && Mathf.Abs(result.z) < 0.2f)
+            return parentShip.transform.TransformDirection(new Vector3(Mathf.Sign(result.x), 0, 0));
+        if (Mathf.Abs(result.y) > 0.8f && Mathf.Abs(result.x) < 0.2f && Mathf.Abs(result.z) < 0.2f)
+            return parentShip.transform.TransformDirection(new Vector3(0, Mathf.Sign(result.y), 0));
+        if (Mathf.Abs(result.z) > 0.8f && Mathf.Abs(result.y) < 0.2f && Mathf.Abs(result.x) < 0.2f)
+            return parentShip.transform.TransformDirection(new Vector3(0, 0, Mathf.Sign(result.z)));
+        return forceDir.normalized;
     }
 }

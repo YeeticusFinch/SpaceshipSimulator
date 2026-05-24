@@ -117,13 +117,16 @@ public class ShipObject : MonoBehaviour
 
     public Yeet.Dmg Damage(Yeet.Dmg dmg, Vector3 pos, float decay = 1)
     {
-        GameObject dmgInd = Instantiate(Game.instance.DmgIndicator) as GameObject;
-        dmgInd.tag = "DamageIndicator";
-        dmgInd.transform.position = pos;
-        dmgInd.transform.localScale *= dmg.GetCombinedDamage()*2;
-        dmgInd.name = "Dmg Indicator";
-        if (rb != null)
-            dmgInd.GetComponent<Particle>().velocity = rb.velocity;
+        if (Game.instance != null && Game.instance.DmgIndicator != null)
+        {
+            GameObject dmgInd = Instantiate(Game.instance.DmgIndicator) as GameObject;
+            dmgInd.tag = "DamageIndicator";
+            dmgInd.transform.position = pos;
+            dmgInd.transform.localScale *= dmg.GetCombinedDamage() * 2;
+            dmgInd.name = "Dmg Indicator";
+            if (rb != null)
+                dmgInd.GetComponent<Particle>().velocity = rb.velocity;
+        }
 
         //dmgInd.transform.parent = transform;
 

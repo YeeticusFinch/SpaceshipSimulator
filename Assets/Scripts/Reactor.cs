@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class Reactor : ShipObject
 {
+    public bool batteryOnly = false;
+
     public bool power = false;
     public bool drivePower = false;
     public bool weaponPower = false;
@@ -38,6 +40,7 @@ public class Reactor : ShipObject
         if (ship.trophy)
             return;
         batteryAmount = batteryCapacity;
+        if (batteryOnly) batteryPower = true;
         HP = maxHP;
         PowerUp();
         reactorStability = 100;
@@ -98,8 +101,11 @@ public class Reactor : ShipObject
     {
         if (HP > 0)
         {
-            tryingToPower = true;
-            power = true;
+            if (!batteryOnly)
+            {
+                tryingToPower = true;
+                power = true;
+            }
             batteryPower = true;
             drivePower = true;
             weaponPower = true;

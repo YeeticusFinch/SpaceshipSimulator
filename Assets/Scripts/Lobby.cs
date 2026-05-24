@@ -89,10 +89,15 @@ public class Lobby : MonoBehaviour
             //ship.mainDrive.thrustAmount = 1;
             //ship.mainDrive.DisplayThrust(0.5f);
             ship.transform.Rotate(0, 0.5f, 0);
-            foreach (Thruster t in ship.space_thrusters)
-                t.Thrust(0.8f);
+            if (ship.space_thrusters != null && ship.space_thrusters.Length > 0 && ship.space_thrusters[0] != null)
+                foreach (Thruster t in ship.space_thrusters)
+                    t.Thrust(0.8f);
+            else if (ship.alt_space_thrusters != null && ship.alt_space_thrusters.Length > 0)
+                foreach (Thruster t in ship.alt_space_thrusters)
+                    if (t != null) t.Thrust(0.8f);
+            if (ship.q_thrusters != null && ship.q_thrusters.Length > 0)
             foreach (Thruster t in ship.q_thrusters)
-                t.Thrust(0.4f);
+                if (t != null) t.Thrust(0.4f);
         }
     }
 

@@ -34,6 +34,8 @@ public class SpaceShip : SpaceObject
     public Camera PilotEyes;
     public RenderTexture PilotScreen;
 
+    public float stealthFactor = 0;
+
     [NonSerialized]
     public bool playerShip;
     [NonSerialized]
@@ -74,6 +76,21 @@ public class SpaceShip : SpaceObject
     public Thruster[] alt_d_thrusters;
     public Thruster[] alt_space_thrusters;
     public Thruster[] alt_shift_thrusters;
+
+    public SpaceShip[] subShips;
+    public int subshipEjectDistance = 4;
+    public bool shipDisabled = false;
+    [Serializable]
+    public class SubShipSlot
+    {
+        public Vector3 localPosition;
+        public Vector3 localEulerAngles;
+        public float maxMass;
+        public Transform parentTransform;
+        public SpaceShip ship;
+    }
+    [NonSerialized]
+    public SubShipSlot[] SubShipSlots;
 
     [NonSerialized]
     public bool jamTargetters = false;
@@ -162,7 +179,34 @@ public class SpaceShip : SpaceObject
     void Start()
     {
         base.Start();
-        if (trophy) return;
+        if (rb == null)
+            rb = GetComponent<Rigidbody>();
+        if (trophy || shipDisabled)
+        {
+            if (rb != null)
+                rb.isKinematic = true;
+            foreach (SpaceShip s in subShips)
+            {
+                s.trophy = trophy;
+                s.shipDisabled = shipDisabled;
+            }
+            return;
+        }
+        StartShip();
+    }
+
+    public void StartShip()
+    {
+        if (trophy)
+        {
+            shipDisabled = true;
+            if (rb == null)
+                rb = GetComponent<Rigidbody>();
+            if (rb != null)
+                rb.isKinematic = true;
+            return;
+        }
+        shipDisabled = false;
         terrainLayerMask = LayerMask.GetMask("Terrain");
         stabalizerPower = defaultStabalizerPower;
         Kp = defaultKp;
@@ -183,7 +227,345 @@ public class SpaceShip : SpaceObject
         thirdPersonRot = Vector3.zero;
         thirdPersonTrans = Vector3.zero;
         name = Yeet.ShipNames[Random.Range(0, Yeet.ShipNames.Length)];
+        PopulateSubShipSlots();
         StartCoroutine(ConfigServos());
+    }
+
+    private void PopulateSubShipSlots()
+    {
+        if (subShips == null)
+        {
+            SubShipSlots = null;
+            return;
+        }
+        SubShipSlots = new SubShipSlot[subShips.Length];
+        for (int i = 0; i < subShips.Length; i++)
+        {
+            SpaceShip s = subShips[i];
+            if (s == null)
+                continue;
+            SubShipSlots[i] = new SubShipSlot
+            {
+                localPosition = s.transform.localPosition,
+                localEulerAngles = s.transform.localEulerAngles,
+                maxMass = (s.rb != null ? s.rb.mass : (s.GetComponent<Rigidbody>() != null ? s.GetComponent<Rigidbody>().mass : 0f)),
+                parentTransform = s.transform.parent,
+                ship = s
+            };
+            s.SetShipDisabledState(true, this);
+        }
+    }
+
+    public void SetShipDisabledState(bool disabled, SpaceShip parentShip = null)
+    {
+        shipDisabled = disabled;
+        if (rb == null)
+            rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            if (disabled)
+            {
+                // Must clear velocities before setting kinematic to avoid Unity warnings.
+                rb.velocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+                rb.isKinematic = true;
+            }
+            else
+            {
+                rb.isKinematic = false;
+            }
+        }
+        if (parentShip != null)
+            IgnoreShipCollisions(parentShip, this, disabled);
+    }
+
+    private static void IgnoreShipCollisions(SpaceShip a, SpaceShip b, bool ignore)
+    {
+        if (a == null || b == null) return;
+        Collider[] aCols = a.GetComponentsInChildren<Collider>(true);
+        Collider[] bCols = b.GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < aCols.Length; i++)
+        {
+            Collider ca = aCols[i];
+            if (ca == null) continue;
+            for (int j = 0; j < bCols.Length; j++)
+            {
+                Collider cb = bCols[j];
+                if (cb == null || ca == cb) continue;
+                Physics.IgnoreCollision(ca, cb, ignore);
+            }
+        }
+    }
+
+    private IEnumerator ReenableSubShipCollisionsWhenSafe(SpaceShip sub, float safeDistance)
+    {
+        if (sub == null)
+            yield break;
+        float minSafeDistance = Mathf.Max(0.1f, safeDistance);
+        while (sub != null && !sub.shipDisabled && Vector3.Distance(transform.position, sub.transform.position) < minSafeDistance)
+        {
+            yield return null;
+        }
+        if (sub != null && !sub.shipDisabled)
+            IgnoreShipCollisions(this, sub, false);
+    }
+
+    private IEnumerator DockSubShipRoutine(SpaceShip dockingShip, SubShipSlot dockSlot, int slotIndex, bool wasPlayerShip, PlayerShip dockingPlayer)
+    {
+        if (dockingShip == null || dockSlot == null || dockSlot.parentTransform == null)
+        {
+            if (dockSlot != null)
+                dockSlot.ship = null;
+            if (subShips != null && slotIndex >= 0 && slotIndex < subShips.Length)
+                subShips[slotIndex] = null;
+            yield break;
+        }
+
+        dockingShip.SetShipDisabledState(true, this);
+        dockingShip.playerShip = false;
+        dockingShip.player = null;
+        dockingShip.npcShip = false;
+
+        float timeout = 5f;
+        float posTolerance = 0.5f;
+        float rotToleranceDeg = 2f;
+        float moveSpeed = 12f;
+        float rotSpeed = 240f;
+        float start = Time.time;
+
+        while (dockingShip != null && Time.time - start < timeout)
+        {
+            Vector3 targetPos = dockSlot.parentTransform.TransformPoint(dockSlot.localPosition);
+            Quaternion targetRot = dockSlot.parentTransform.rotation * Quaternion.Euler(dockSlot.localEulerAngles);
+            float dist = Vector3.Distance(dockingShip.transform.position, targetPos);
+            float rotDist = Quaternion.Angle(dockingShip.transform.rotation, targetRot);
+            if (dist <= posTolerance && rotDist <= rotToleranceDeg)
+                break;
+
+            dockingShip.transform.position = Vector3.MoveTowards(dockingShip.transform.position, targetPos, moveSpeed * Time.deltaTime);
+            dockingShip.transform.rotation = Quaternion.RotateTowards(dockingShip.transform.rotation, targetRot, rotSpeed * Time.deltaTime);
+            yield return null;
+        }
+
+        if (dockingShip == null)
+        {
+            dockSlot.ship = null;
+            if (subShips != null && slotIndex >= 0 && slotIndex < subShips.Length)
+                subShips[slotIndex] = null;
+            yield break;
+        }
+
+        dockingShip.transform.parent = dockSlot.parentTransform;
+        dockingShip.transform.localPosition = dockSlot.localPosition;
+        dockingShip.transform.localEulerAngles = dockSlot.localEulerAngles;
+
+        if (subShips == null || subShips.Length != SubShipSlots.Length)
+            subShips = new SpaceShip[SubShipSlots.Length];
+        subShips[slotIndex] = dockingShip;
+
+        if (wasPlayerShip)
+        {
+            TransferPlayerToShip(dockingPlayer, this);
+        }
+        else
+        {
+            NpcShip npc = FindNpcController(dockingShip);
+            if (npc != null)
+                Destroy(npc.gameObject);
+        }
+    }
+
+    private static Bounds GetShipBounds(SpaceShip s)
+    {
+        Collider[] cols = s.GetComponentsInChildren<Collider>(true);
+        bool started = false;
+        Bounds b = new Bounds(s.transform.position, Vector3.zero);
+        foreach (Collider c in cols)
+        {
+            if (c == null || !c.enabled) continue;
+            if (!started)
+            {
+                b = c.bounds;
+                started = true;
+            }
+            else
+                b.Encapsulate(c.bounds);
+        }
+        return b;
+    }
+
+    private static NpcShip FindNpcController(SpaceShip targetShip)
+    {
+        foreach (NpcShip npc in GameObject.FindObjectsOfType(typeof(NpcShip)))
+        {
+            if (npc != null && npc.ship == targetShip)
+                return npc;
+        }
+        return null;
+    }
+
+    private static void TransferPlayerToShip(PlayerShip playerController, SpaceShip newShip)
+    {
+        if (playerController == null || newShip == null)
+            return;
+        bool wasThirdPerson = false;
+        int previousCamIndex = 0;
+        playerController.CaptureTransferCameraState(out wasThirdPerson, out previousCamIndex);
+        if (playerController.ship != null)
+        {
+            playerController.ship.playerShip = false;
+            playerController.ship.player = null;
+        }
+        NpcShip oldNpc = FindNpcController(newShip);
+        if (oldNpc != null)
+            Destroy(oldNpc.gameObject);
+        playerController.ship = newShip;
+        newShip.playerShip = true;
+        newShip.npcShip = false;
+        newShip.playSounds = true;
+        newShip.player = playerController;
+        if (playerController.cam != null && newShip.cameras != null && newShip.cameras.Length > 0 && newShip.cameras[0] != null)
+        {
+            playerController.cam.transform.parent = newShip.cameras[0].transform;
+            playerController.cam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            playerController.cam.fieldOfView = Yeet.fieldOfView;
+        }
+        if (playerController.listener != null && newShip.cockpit != null)
+        {
+            playerController.listener.transform.parent = newShip.cockpit.transform;
+            playerController.listener.transform.localPosition = Vector3.zero;
+        }
+        playerController.RestoreTransferCameraState(wasThirdPerson, previousCamIndex);
+    }
+
+    public bool EjectSubShip(int slotIndex, bool transferPlayer)
+    {
+        if (SubShipSlots == null || slotIndex < 0 || slotIndex >= SubShipSlots.Length)
+            return false;
+        SubShipSlot slot = SubShipSlots[slotIndex];
+        if (slot == null || slot.ship == null)
+            return false;
+        SpaceShip sub = slot.ship;
+
+        slot.ship = null;
+        subShips[slotIndex] = null;
+        sub.transform.parent = null;
+
+        if (sub.rb == null)
+            sub.rb = sub.GetComponent<Rigidbody>();
+
+        Bounds parentBounds = GetShipBounds(this);
+        Bounds subBounds = GetShipBounds(sub);
+        Vector3 dir = (sub.transform.position - parentBounds.center);
+        if (dir.sqrMagnitude < 0.0001f)
+            dir = transform.up;
+        dir.Normalize();
+        float pushDist = parentBounds.extents.magnitude + subBounds.extents.magnitude + Mathf.Max(0.1f, subshipEjectDistance);
+        Vector3 targetPos = parentBounds.center + dir * pushDist;
+
+        if (sub.rb != null)
+            sub.rb.position = targetPos;
+        else
+            sub.transform.position = targetPos;
+        sub.transform.rotation = transform.rotation;
+
+        // Keep collisions ignored with parent until subship exits the configured safe distance.
+        sub.SetShipDisabledState(false, null);
+        sub.StartShip();
+        StartCoroutine(ReenableSubShipCollisionsWhenSafe(sub, subshipEjectDistance));
+
+        if (sub.rb != null)
+        {
+            Vector3 parentVel = (rb != null ? rb.velocity : Vector3.zero);
+            sub.rb.velocity = parentVel + dir * 20f;
+        }
+
+        if (transferPlayer && playerShip && player != null)
+        {
+            sub.team = player.team;
+            TransferPlayerToShip(player, sub);
+        }
+        else
+        {
+            GameObject npcObj = new GameObject("NpcShip");
+            NpcShip npc = npcObj.AddComponent<NpcShip>();
+            npc.ship = sub;
+            npc.team = (player != null ? player.team : team);
+            sub.team = npc.team;
+            sub.playerShip = false;
+            sub.npcShip = true;
+            sub.player = null;
+        }
+        return true;
+    }
+
+    public bool DockSubShip(SpaceShip dockingShip)
+    {
+        if (dockingShip == null || dockingShip.shipDisabled || dockingShip == this || dockingShip.team != team || SubShipSlots == null)
+            return false;
+        float dockingRange = Mathf.Max(0.1f, subshipEjectDistance * 2f);
+        bool wasPlayerShip = dockingShip.playerShip && dockingShip.player != null;
+        PlayerShip dockingPlayer = dockingShip.player;
+        if (dockingShip.rb == null)
+            dockingShip.rb = dockingShip.GetComponent<Rigidbody>();
+        float dockingMass = dockingShip.rb != null ? dockingShip.rb.mass : float.MaxValue;
+
+        int bestSlot = -1;
+        float bestDist = float.MaxValue;
+        for (int i = 0; i < SubShipSlots.Length; i++)
+        {
+            SubShipSlot slot = SubShipSlots[i];
+            if (slot == null || slot.parentTransform == null || slot.ship != null || dockingMass > slot.maxMass)
+                continue;
+            Vector3 worldPos = slot.parentTransform.TransformPoint(slot.localPosition);
+            float dist = Vector3.Distance(worldPos, dockingShip.transform.position);
+            if (dist > dockingRange)
+                continue;
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                bestSlot = i;
+            }
+        }
+        if (bestSlot == -1)
+            return false;
+
+        SubShipSlot dockSlot = SubShipSlots[bestSlot];
+        dockSlot.ship = dockingShip;
+        if (subShips == null || subShips.Length != SubShipSlots.Length)
+            subShips = new SpaceShip[SubShipSlots.Length];
+        StartCoroutine(DockSubShipRoutine(dockingShip, dockSlot, bestSlot, wasPlayerShip, dockingPlayer));
+        return true;
+    }
+
+    public bool DockSubShip()
+    {
+        float bestDist = float.MaxValue;
+        SpaceShip bestParent = null;
+        foreach (SpaceObject candidate in SpaceObject.ActiveObjects)
+        {
+            SpaceShip parent = candidate as SpaceShip;
+            if (parent == null || parent == this || parent.SubShipSlots == null || parent.team != team)
+                continue;
+            for (int i = 0; i < parent.SubShipSlots.Length; i++)
+            {
+                SubShipSlot slot = parent.SubShipSlots[i];
+                if (slot == null || slot.ship != null || slot.parentTransform == null)
+                    continue;
+                if (rb != null && rb.mass > slot.maxMass)
+                    continue;
+                Vector3 worldPos = slot.parentTransform.TransformPoint(slot.localPosition);
+                float dist = Vector3.Distance(transform.position, worldPos);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    bestParent = parent;
+                }
+            }
+        }
+        if (bestParent == null)
+            return false;
+        return bestParent.DockSubShip(this);
     }
 
     IEnumerator ConfigServos()
@@ -233,6 +615,9 @@ public class SpaceShip : SpaceObject
     {
         foreach (Thruster t in transform.GetComponentsInChildren<Thruster>())
         {
+            // Avoid leaking parent-ship thruster-group values into docked child subships.
+            if (t == null || t.GetComponentInParent<SpaceShip>() != this)
+                continue;
             if (t.copyThrusterGroup)
             {
                 if (t.mainDrive)
@@ -251,6 +636,8 @@ public class SpaceShip : SpaceObject
 
     private void OnCollisionEnter(Collision collision)
     {
+        if (trophy || shipDisabled)
+            return;
         if (collision.collider.GetComponent<Missile>() != null)
             return;
         else
@@ -435,24 +822,28 @@ public class SpaceShip : SpaceObject
                 //g.targets.Remove(null);
             }
         }
-        foreach (GameObject g in GameObject.FindGameObjectsWithTag("UI Target"))
+        foreach (Indicator targetIndicator in Indicator.ActiveIndicators)
         {
-            if (g.GetComponent<Indicator>().target.Equals(o) || Vector3.Distance(o.transform.position, g.GetComponent<Indicator>().target.transform.position) < 0.1f)
+            if (targetIndicator == null || targetIndicator.gameObject == null || !targetIndicator.gameObject.CompareTag("UI Target") || targetIndicator.target == null)
+                continue;
+            if (targetIndicator.target.Equals(o) || Vector3.Distance(o.transform.position, targetIndicator.target.transform.position) < 0.1f)
             {
                 Debug.Log("EE");
-                Destroy(g);
+                Destroy(targetIndicator.gameObject);
             }
         }
     }
 
     public void ClearTargetLock(gun g)
     {
-        foreach(GameObject o in GameObject.FindGameObjectsWithTag("UI Target"))
+        foreach(Indicator targetIndicator in Indicator.ActiveIndicators)
         {
-            if (o.GetComponent<Indicator>().target.Equals(g.targetLock) || Vector3.Distance(g.targetLock.transform.position, o.GetComponent<Indicator>().target.transform.position) < 0.1f)
+            if (targetIndicator == null || targetIndicator.gameObject == null || !targetIndicator.gameObject.CompareTag("UI Target") || targetIndicator.target == null)
+                continue;
+            if (targetIndicator.target.Equals(g.targetLock) || Vector3.Distance(g.targetLock.transform.position, targetIndicator.target.transform.position) < 0.1f)
             {
                 Debug.Log("E");
-                Destroy(o);
+                Destroy(targetIndicator.gameObject);
             }
         }
         g.targetLock = null;
@@ -543,9 +934,14 @@ public class SpaceShip : SpaceObject
     public float aimDistance = 10;
     [NonSerialized]
     public bool dangerObjectsPresent = false;
+    private readonly List<Indicator> uiCircleIndicators = new List<Indicator>();
+    private readonly List<Indicator> uiTargetIndicators = new List<Indicator>();
+    private readonly HashSet<GameObject> uiCircleTargets = new HashSet<GameObject>();
+    private readonly HashSet<GameObject> uiTargetObjects = new HashSet<GameObject>();
     void FixedUpdate()
     {
         if (trophy) return;
+        if (shipDisabled) return;
         base.FixedUpdate();
         if (!playSounds && c % 50 == 0 && (Game.instance != null && Game.instance.atmosphere)) playSounds = true;
         if (Game.instance != null)
@@ -601,31 +997,50 @@ public class SpaceShip : SpaceObject
 
         if (c%50 == 0)
         {
-            GameObject[] circles = GameObject.FindGameObjectsWithTag("UI Circle");
-            List<GameObject> hasCircle = new List<GameObject>();
-            foreach (GameObject g in circles)
+            uiCircleIndicators.Clear();
+            uiTargetIndicators.Clear();
+            uiCircleTargets.Clear();
+            uiTargetObjects.Clear();
+            foreach (Indicator indicator in Indicator.ActiveIndicators)
             {
-                if (g.GetComponent<Indicator>().target != null)
+                if (indicator == null || indicator.gameObject == null)
+                    continue;
+                if (indicator.gameObject.CompareTag("UI Circle"))
                 {
-                    hasCircle.Add(g.GetComponent<Indicator>().target);
+                    uiCircleIndicators.Add(indicator);
+                    if (indicator.target != null)
+                        uiCircleTargets.Add(indicator.target);
+                }
+                else if (indicator.gameObject.CompareTag("UI Target"))
+                {
+                    uiTargetIndicators.Add(indicator);
+                    if (indicator.target != null)
+                        uiTargetObjects.Add(indicator.target);
                 }
             }
             if (radarOn && reactor.telemetryPower)
             {
-                foreach (SpaceObject o in GameObject.FindObjectsOfType(typeof(SpaceObject)))
+                foreach (SpaceObject o in SpaceObject.ActiveObjects)
                 {
+                    if (o == null)
+                        continue;
                     if (o.gameObject == gameObject)
                         continue;
-                    if ((npcShip || (playerShip && !player.radarObjects)) && ((o.GetComponent<SpaceShip>() == null && o.GetComponent<Missile>() == null && o.GetComponent<SimpleMotionObject>() == null) || (o.GetComponent<SpaceShip>() != null && o.GetComponent<SpaceShip>().IsAlive() == false)))
+                    SpaceShip oShip = o.GetComponent<SpaceShip>();
+                    Missile oMissile = o.GetComponent<Missile>();
+                    SimpleMotionObject oSimpleMotion = o.GetComponent<SimpleMotionObject>();
+                    Rigidbody oRb = o.GetComponent<Rigidbody>();
+                    bool oShipDead = oShip != null && !oShip.IsAlive();
+                    if ((npcShip || (playerShip && !player.radarObjects)) && ((oShip == null && oMissile == null && oSimpleMotion == null) || oShipDead))
                     {
-                        if (hasCircle.Contains(o.gameObject))
+                        if (uiCircleTargets.Contains(o.gameObject))
                         {
-                            for (int i = 0; i < circles.Length; i++)
+                            for (int i = 0; i < uiCircleIndicators.Count; i++)
                             {
-                                if (circles[i].GetComponent<Indicator>().target == o.gameObject)
+                                Indicator circleIndicator = uiCircleIndicators[i];
+                                if (circleIndicator != null && circleIndicator.target == o.gameObject)
                                 {
-                                    //Debug.Log("A");
-                                    Destroy(circles[i]);
+                                    Destroy(circleIndicator.gameObject);
                                 }
                             }
                         }
@@ -640,7 +1055,7 @@ public class SpaceShip : SpaceObject
                             radared = true;
                             if (playerShip)
                             {
-                                if (!hasCircle.Contains(o.gameObject))
+                                if (!uiCircleTargets.Contains(o.gameObject))
                                 {
                                     GameObject temp = Instantiate(player.circle, player.canvas.transform);
                                     temp.transform.localEulerAngles = Vector3.zero;
@@ -653,36 +1068,40 @@ public class SpaceShip : SpaceObject
                                 } else
                                 {
                                     bool foundCircle = false;
-                                    for (int i = 0; i < circles.Length; i++)
+                                    for (int i = 0; i < uiCircleIndicators.Count; i++)
                                     {
-                                        if (circles[i].GetComponent<Indicator>().target == o.gameObject)
+                                        Indicator circleIndicator = uiCircleIndicators[i];
+                                        if (circleIndicator != null && circleIndicator.target == o.gameObject)
                                         {
                                             if (foundCircle)
                                             {
-                                                Destroy(circles[i]);
-                                                //Debug.Log("BB");
+                                                Destroy(circleIndicator.gameObject);
                                             }
                                             foundCircle = true;
-                                            circles[i].GetComponent<Indicator>().guess = false;
-                                            circles[i].GetComponent<Image>().color = Color.white;
-                                            circles[i].GetComponentInChildren<TextMeshProUGUI>().color = Color.white;
+                                            circleIndicator.guess = false;
+                                            circleIndicator.GetComponent<Image>().color = Color.white;
+                                            circleIndicator.GetComponentInChildren<TextMeshProUGUI>().color = Color.white;
 
                                         }
                                     }
                                 }
-                                if (player.traceMissile && o.GetComponent<Missile>() != null)
+                                if (player.traceMissile && oMissile != null)
                                 {
-                                    o.GetComponent<Missile>().trace = true;
+                                    oMissile.trace = true;
                                 }
                             }
 
                             bool dangerObject = false;
 
-                            if (Vector3.Distance(o.transform.position, transform.position) > 1f && (o.gameObject.GetComponent<Rigidbody>() != null || o.gameObject.GetComponent<Missile>() != null))
+                            if (Vector3.Distance(o.transform.position, transform.position) > 1f && (oRb != null || oMissile != null))
                             {
-                                Vector3 velDiff = (o.gameObject.GetComponent<Missile>() != null ? o.gameObject.GetComponent<Missile>().getVelocity() : o.gameObject.GetComponent<Rigidbody>().velocity) - rb.velocity;
-
-                                if ((o.gameObject.tag == "AlwaysTarget" || (o.gameObject.GetComponent<SimpleMotionObject>() != null && o.gameObject.GetComponent<SimpleMotionObject>().alwaysTarget)) || (o.gameObject.GetComponent<Missile>() != null && o.gameObject.GetComponent<Missile>().target != null && Vector3.Distance(o.gameObject.GetComponent<Missile>().target.transform.position, transform.position) < o.gameObject.GetComponent<Missile>().explodeRange && o.gameObject.GetComponent<Missile>().chasing) || (Vector3.Angle(transform.position - o.gameObject.transform.position, velDiff) < 10 && ((o.gameObject.GetComponent<Rigidbody>() != null && o.gameObject.GetComponent<Rigidbody>().velocity.magnitude > 5f) || (o.gameObject.GetComponent<Missile>() != null && o.gameObject.GetComponent<Missile>().getVelocity().magnitude > 5f)) && Vector3.Distance(transform.position, o.transform.position) < safeDistance))
+                                Vector3 velDiff = (oMissile != null ? oMissile.getVelocity() : oRb.velocity) - rb.velocity;
+                                bool alwaysTarget = o.gameObject.tag == "AlwaysTarget" || (oSimpleMotion != null && oSimpleMotion.alwaysTarget);
+                                bool missileThreat = oMissile != null && oMissile.target != null && Vector3.Distance(oMissile.target.transform.position, transform.position) < oMissile.explodeRange && oMissile.chasing;
+                                bool collisionPath = Vector3.Angle(transform.position - o.gameObject.transform.position, velDiff) < 10 &&
+                                    ((oRb != null && oRb.velocity.magnitude > 5f) || (oMissile != null && oMissile.getVelocity().magnitude > 5f)) &&
+                                    Vector3.Distance(transform.position, o.transform.position) < safeDistance;
+                                if (alwaysTarget || missileThreat || collisionPath)
                                 {
                                     dangerObjectsPresent = true;
                                     if (playerShip)
@@ -702,9 +1121,13 @@ public class SpaceShip : SpaceObject
                                                 }
                                             }
                                             bool missileAlreadyLanched = false;
-                                            foreach (Missile m in GameObject.FindObjectsOfType(typeof(Missile)))
+                                            foreach (Missile m in Missile.ActiveMissiles)
                                             {
-                                                if (m.owner == this && m.target == o.gameObject) missileAlreadyLanched = true;
+                                                if (m != null && m.owner == this && m.target == o.gameObject)
+                                                {
+                                                    missileAlreadyLanched = true;
+                                                    break;
+                                                }
                                             }
                                             if (!missileAlreadyLanched)
                                             {
@@ -725,14 +1148,9 @@ public class SpaceShip : SpaceObject
 
                             if (!dangerObject)
                             {
-                                //Debug.Log("Not Dangerous " + o.name);
-                                bool hasTarget = false;
-                                foreach (GameObject e in GameObject.FindGameObjectsWithTag("UI Target"))
-                                    if (e.GetComponent<Indicator>().target == o.gameObject)
-                                        hasTarget = true;
+                                bool hasTarget = uiTargetObjects.Contains(o.gameObject);
                                 if (!hasTarget)
                                 {
-                                    //Debug.Log("No Target " + o.name);
                                     foreach (gun g in turrets)
                                     {
                                         if (g.defend)
@@ -749,30 +1167,30 @@ public class SpaceShip : SpaceObject
                         }
                         if (radared) break;
                     }
-                    if (!radared && hasCircle.Contains(o.gameObject))
+                    if (playerShip && !radared && uiCircleTargets.Contains(o.gameObject))
                     {
                         bool foundCircle = false;
-                        for (int i = 0; i < circles.Length; i++)
+                        for (int i = 0; i < uiCircleIndicators.Count; i++)
                         {
-                            if (circles[i].GetComponent<Indicator>().target == o.gameObject)
+                            Indicator circleIndicator = uiCircleIndicators[i];
+                            if (circleIndicator != null && circleIndicator.target == o.gameObject)
                             {
                                 if (foundCircle)
                                 {
-                                    Destroy(circles[i]);
+                                    Destroy(circleIndicator.gameObject);
                                     Debug.Log("B");
                                 }
                                 foundCircle = true;
-                                circles[i].GetComponent<Indicator>().guess = true;
-                                circles[i].GetComponent<Image>().color = Color.yellow;
-                                circles[i].GetComponentInChildren<TextMeshProUGUI>().color = Color.yellow;
-                                circles[i].GetComponent<Indicator>().guessPos = o.gameObject.transform.position;
-                                if (o.gameObject.GetComponent<Rigidbody>() != null)
+                                circleIndicator.guess = true;
+                                circleIndicator.GetComponent<Image>().color = Color.yellow;
+                                circleIndicator.GetComponentInChildren<TextMeshProUGUI>().color = Color.yellow;
+                                circleIndicator.guessPos = o.gameObject.transform.position;
+                                if (oRb != null)
                                 {
-                                    circles[i].GetComponent<Indicator>().guessVel = o.gameObject.GetComponent<Rigidbody>().velocity;
+                                    circleIndicator.guessVel = oRb.velocity;
                                 }
                                 else
-                                    circles[i].GetComponent<Indicator>().guessVel = Vector3.zero; ;
-                                //Destroy(circles[i]);
+                                    circleIndicator.guessVel = Vector3.zero;
                             }
                         }
                     }
@@ -781,10 +1199,11 @@ public class SpaceShip : SpaceObject
             if (reactor.telemetryPower && playerShip)
             {
                 activeTargeters = 0;
-                foreach (GameObject o in GameObject.FindGameObjectsWithTag("UI Target"))
+                foreach (Indicator indi in uiTargetIndicators)
                 {
+                    if (indi == null || indi.target == null)
+                        continue;
                     bool stillInRange = false;
-                    Indicator indi = o.GetComponent<Indicator>();
                     foreach (Targeter t in targeters)
                     {
                         if (playerShip && t.TargetObject(indi.target, player.traceRadar))
@@ -807,7 +1226,7 @@ public class SpaceShip : SpaceObject
                                 lastVel = indi.target.GetComponent<Rigidbody>().velocity;
                             else if (indi.target.GetComponentInParent<Rigidbody>() != null)
                                 lastVel = indi.target.GetComponentInParent<Rigidbody>().velocity;
-                            ConvertTargetLockIndicatorStatus(o, false, indi.target.transform.position, lastVel);
+                            ConvertTargetLockIndicatorStatus(indi.gameObject, false, indi.target.transform.position, lastVel);
                         Debug.Log("C");
                         }
                     //} else
@@ -815,7 +1234,7 @@ public class SpaceShip : SpaceObject
                         if (stillInRange == true && indi.guess) // Regained target lock on object o
                         {
                             ChangeTargetLockStatus(indi.target, true);
-                            ConvertTargetLockIndicatorStatus(o, true);
+                            ConvertTargetLockIndicatorStatus(indi.gameObject, true);
                         }
                     //}
                 }
@@ -1371,7 +1790,7 @@ public class SpaceShip : SpaceObject
             // 1) Normalize incoming target
             target = target.normalized;
 
-            // 2) Clamp it to within 20° of world-up
+            // 2) Clamp it to within 20Â° of world-up
            
             Vector3 worldUp = Vector3.up;
             float angleFromUp = Vector3.Angle(worldUp, target);
@@ -1379,12 +1798,12 @@ public class SpaceShip : SpaceObject
             Vector3 upwardsTarget;
             if (angleFromUp <= maxTiltDeg)
             {
-                // within 20°, just use the original
+                // within 20Â°, just use the original
                 upwardsTarget = target;
             }
             else
             {
-                // project out to exactly 20° from up
+                // project out to exactly 20Â° from up
                 float t = maxTiltDeg / angleFromUp;
                 upwardsTarget = Vector3.Slerp(worldUp, target, t).normalized;
             }
@@ -1679,6 +2098,8 @@ public class SpaceShip : SpaceObject
 
     public void FireThrusters(Thruster[] thrusters, float power, int priority, bool mainDrive = false)
     {
+        if (thrusters == null || thrusters.Length == 0 || shipDisabled || trophy)
+            return;
         if (power <= 0)
             return;
 
@@ -1770,7 +2191,7 @@ public class SpaceShip : SpaceObject
             }
         }
 
-        if (Game.instance.record && c % 10 == 0)
+        if (Game.instance != null && Game.instance.record && Game.instance.rec != null && c % 10 == 0)
         {
             Game.instance.rec.LogThrust(this, thrusters, power > 0, power, priority);
         }
@@ -1781,7 +2202,9 @@ public class SpaceShip : SpaceObject
 
     public void StopThrusters(Thruster[] thrusters)
     {
-        if (Game.instance.record && c % 10 == 0)
+        if (thrusters == null || thrusters.Length == 0)
+            return;
+        if (Game.instance != null && Game.instance.record && Game.instance.rec != null && c % 10 == 0)
         {
             Game.instance.rec.LogThrust(this, thrusters, false, 0, 0);
         }

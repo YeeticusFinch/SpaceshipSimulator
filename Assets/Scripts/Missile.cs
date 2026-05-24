@@ -6,6 +6,7 @@ using Random = UnityEngine.Random;
 
 public class Missile : SpaceObject
 {
+    public static readonly HashSet<Missile> ActiveMissiles = new HashSet<Missile>();
     public GameObject camOrbit;
     public GameObject camSpot;
 
@@ -105,6 +106,7 @@ public class Missile : SpaceObject
     void Start()
     {
         base.Start();
+        ActiveMissiles.Add(this);
         //rb = GetComponent<Rigidbody>();
         camOrbit.transform.parent = null;
 
@@ -595,6 +597,7 @@ public class Missile : SpaceObject
 
     protected void OnDestroy()
     {
+        ActiveMissiles.Remove(this);
         if (Game.instance.record)
         {
             Game.instance.rec.KillObject(this);
