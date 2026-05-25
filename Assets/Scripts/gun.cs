@@ -849,47 +849,37 @@ public class gun : ShipObject
 
     Vector3 GetMovingTargetPos(GameObject target)
     {
+        if (target == null)
+            return transform.position;
         if (hitscan)
             return target.transform.position;
+        SpaceShip.TargetKinematicsSnapshot snapshot;
+        Vector3 targetPos = target.transform.position;
         Vector3 targetVel = Vector3.zero;
         Vector3 targetAcc = Vector3.zero;
-        if (target.GetComponent<Rigidbody>() != null)
+        if (ship != null && ship.TryGetTargetKinematics(target, out snapshot) && snapshot.valid)
         {
-            if (target.GetComponent<Rigidbody>().isKinematic)
-                targetVel = Vector3.zero;
-            else
-            {
-                targetVel = target.GetComponent<Rigidbody>().velocity;
-                if (targetVel.magnitude > Game.instance.maxMissileSpeed)
-                    targetVel = targetVel.normalized * Game.instance.maxMissileSpeed;
-                if (targetVel.magnitude < Game.instance.maxMissileSpeed * 0.95f)
-                    targetAcc = target.GetComponent<Rigidbody>().GetAccumulatedForce() / target.GetComponent<Rigidbody>().mass;
-            }
-        } else if (target.GetComponent<Missile>() != null)
-        {
-            targetVel = target.GetComponent<Missile>().getVelocity();
-            if (targetVel.magnitude > Game.instance.maxMissileSpeed)
-                targetVel = targetVel.normalized * Game.instance.maxMissileSpeed;
-            if (targetVel.magnitude < Game.instance.maxMissileSpeed * 0.95f)
-                targetAcc = target.GetComponent<Missile>().getAcceleration();
+            targetPos = snapshot.position;
+            targetVel = snapshot.velocity;
+            targetAcc = snapshot.acceleration;
         }
         Vector3 velDiff = targetVel - ship.rb.velocity;
-        float time = hitscan ? Time.fixedDeltaTime : Vector3.Distance(target.transform.position, transform.position) / muzzleVelocity;
+        float time = hitscan ? Time.fixedDeltaTime : Vector3.Distance(targetPos, transform.position) / muzzleVelocity;
         velDiff += targetAcc * time;
 
-        time = Vector3.Distance(target.transform.position + velDiff * time, transform.position) / muzzleVelocity;
-        time = Vector3.Distance(target.transform.position + velDiff * time, transform.position) / muzzleVelocity;
+        time = Vector3.Distance(targetPos + velDiff * time, transform.position) / muzzleVelocity;
+        time = Vector3.Distance(targetPos + velDiff * time, transform.position) / muzzleVelocity;
 
-        Vector3 targetPos = target.transform.position + velDiff * time;
+        Vector3 movingTargetPos = targetPos + velDiff * time;
 
-        if (Vector3.Angle(transform.position - target.transform.position, velDiff) < 10 && Vector3.Angle(targetPos, target.transform.position) > 45)
+        if (Vector3.Angle(transform.position - targetPos, velDiff) < 10 && Vector3.Angle(movingTargetPos, targetPos) > 45)
         {
-            targetPos = target.transform.position;
+            movingTargetPos = targetPos;
         }
 
         //Debug.Log("vel=" + targetVel + ", acc=" + targetAcc + ", velDiff=" + velDiff);
 
-        return targetPos;
+        return movingTargetPos;
     }
 
     bool CanReach(GameObject target)

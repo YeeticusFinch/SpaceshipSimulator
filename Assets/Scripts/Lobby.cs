@@ -43,11 +43,14 @@ public class Lobby : MonoBehaviour
     [System.NonSerialized]
     public int selectedMap;
 
+    Vector3 ogShipDisplayPos;
+
     // Start is called before the first frame update
     void Start()
     {
         Game.SHIPS = ships;
         Physics.gravity = Vector3.zero;
+        ogShipDisplayPos = shipDisplay.transform.position;
     }
 
     // Update is called once per frame
@@ -108,16 +111,21 @@ public class Lobby : MonoBehaviour
             if (selectedShip < 0)
                 selectedShip += ships.Length;
             displayingShipID = selectedShip;
-            if (FindObjectOfType<SpaceShip>() != null)
-                GameObject.Destroy(FindObjectOfType<SpaceShip>().gameObject);
+            //if (FindObjectOfType<SpaceShip>() != null)
+            //    GameObject.Destroy(FindObjectOfType<SpaceShip>().gameObject);
+            if (ship != null)
+                GameObject.Destroy(ship.gameObject);
 
             ship = (GameObject.Instantiate(ships[selectedShip]) as GameObject).GetComponent<SpaceShip>();
+
 
             //ship.trophy = true;
             ship.GetComponent<Rigidbody>().isKinematic = true;
 
             ship.transform.parent = shipDisplay.transform;
             ship.transform.localPosition = Vector3.zero;
+            Vector3 disp = (ogShipDisplayPos - transform.position);
+            shipDisplay.transform.position = ogShipDisplayPos + disp * ship.lobbyOffset;
             selectedShipText.text = ships[selectedShip].GetComponent<SpaceShip>().name;
             shipDescriptionText.text = ships[selectedShip].GetComponent<SpaceShip>().description;
         }

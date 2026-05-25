@@ -127,7 +127,7 @@ public class Thruster : ShipObject
         
         //if (servoDisable)
         //    return false;
-        return (forMissile || (reactor.drivePower && (reactor.power || (reactor.batteryPower && !needsReactor)))) && thrustAmount > 0.001f;
+        return (forMissile || (reactor != null && reactor.drivePower && (reactor.power || (reactor.batteryPower && !needsReactor)))) && thrustAmount > 0.001f;
     }
 
     bool showThrust = false;

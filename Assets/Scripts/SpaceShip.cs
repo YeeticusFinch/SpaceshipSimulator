@@ -8,6 +8,8 @@ using Random = UnityEngine.Random;
 
 public class SpaceShip : SpaceObject
 {
+    public float lobbyOffset = 0;
+    public static float TargetingKinematicsHz = 10f;
     public string description;
     [NonSerialized]
     public bool trophy = false; // set to true if you want this ship to just be a dummy, to not do anything at all
@@ -938,6 +940,114 @@ public class SpaceShip : SpaceObject
     private readonly List<Indicator> uiTargetIndicators = new List<Indicator>();
     private readonly HashSet<GameObject> uiCircleTargets = new HashSet<GameObject>();
     private readonly HashSet<GameObject> uiTargetObjects = new HashSet<GameObject>();
+    private readonly Dictionary<GameObject, TargetKinematicsSnapshot> targetKinematicsCache = new Dictionary<GameObject, TargetKinematicsSnapshot>();
+    private readonly HashSet<GameObject> targetingSnapshotTargets = new HashSet<GameObject>();
+    private float nextTargetingKinematicsUpdateTime = 0f;
+
+    public struct TargetKinematicsSnapshot
+    {
+        public Vector3 position;
+        public Vector3 velocity;
+        public Vector3 acceleration;
+        public bool valid;
+    }
+
+    public bool TryGetTargetKinematics(GameObject target, out TargetKinematicsSnapshot snapshot)
+    {
+        if (target == null)
+        {
+            snapshot = default;
+            return false;
+        }
+
+        if (Time.time >= nextTargetingKinematicsUpdateTime)
+            UpdateTargetKinematicsSnapshotCache();
+
+        if (targetKinematicsCache.TryGetValue(target, out snapshot))
+            return snapshot.valid;
+
+        snapshot = default;
+        return false;
+    }
+
+    void UpdateTargetKinematicsSnapshotCache()
+    {
+        float hz = Mathf.Clamp(TargetingKinematicsHz, 0.1f, 120f);
+        nextTargetingKinematicsUpdateTime = Time.time + 1f / hz;
+        float maxTrackedSpeed = Game.instance != null ? Game.instance.maxMissileSpeed : 99999f;
+
+        targetingSnapshotTargets.Clear();
+        AddGunTargetsToSnapshot(turrets);
+        AddGunTargetsToSnapshot(statGuns);
+
+        List<GameObject> remove = null;
+        foreach (KeyValuePair<GameObject, TargetKinematicsSnapshot> e in targetKinematicsCache)
+        {
+            if (e.Key == null || !targetingSnapshotTargets.Contains(e.Key))
+            {
+                if (remove == null) remove = new List<GameObject>();
+                remove.Add(e.Key);
+            }
+        }
+        if (remove != null)
+        {
+            foreach (GameObject g in remove)
+                targetKinematicsCache.Remove(g);
+        }
+
+        foreach (GameObject target in targetingSnapshotTargets)
+        {
+            if (target == null)
+                continue;
+
+            TargetKinematicsSnapshot snapshot = new TargetKinematicsSnapshot
+            {
+                position = target.transform.position,
+                velocity = Vector3.zero,
+                acceleration = Vector3.zero,
+                valid = true
+            };
+
+            Rigidbody targetRb = target.GetComponent<Rigidbody>();
+            Missile targetMissile = target.GetComponent<Missile>();
+            if (targetRb != null)
+            {
+                if (!targetRb.isKinematic)
+                {
+                    snapshot.velocity = targetRb.velocity;
+                    if (snapshot.velocity.magnitude > maxTrackedSpeed)
+                        snapshot.velocity = snapshot.velocity.normalized * maxTrackedSpeed;
+                    if (snapshot.velocity.magnitude < maxTrackedSpeed * 0.95f && targetRb.mass > 0.0001f)
+                        snapshot.acceleration = targetRb.GetAccumulatedForce() / targetRb.mass;
+                }
+            }
+            else if (targetMissile != null)
+            {
+                snapshot.velocity = targetMissile.getVelocity();
+                if (snapshot.velocity.magnitude > maxTrackedSpeed)
+                    snapshot.velocity = snapshot.velocity.normalized * maxTrackedSpeed;
+                if (snapshot.velocity.magnitude < maxTrackedSpeed * 0.95f)
+                    snapshot.acceleration = targetMissile.getAcceleration();
+            }
+
+            targetKinematicsCache[target] = snapshot;
+        }
+    }
+
+    void AddGunTargetsToSnapshot(gun[] guns)
+    {
+        if (guns == null) return;
+        foreach (gun g in guns)
+        {
+            if (g == null || g.targets == null) continue;
+            foreach (KeyValuePair<GameObject, bool> t in g.targets)
+            {
+                if (t.Key != null)
+                    targetingSnapshotTargets.Add(t.Key);
+            }
+        }
+    }
+
     void FixedUpdate()
     {
         if (trophy) return;
@@ -951,6 +1061,8 @@ public class SpaceShip : SpaceObject
         }
         c++;
         c %= 1000;
+        if (Time.time >= nextTargetingKinematicsUpdateTime)
+            UpdateTargetKinematicsSnapshotCache();
 
         thirdPersonAxis.transform.eulerAngles = thirdPersonRot;
         thirdPersonAxis.transform.position = transform.position + thirdPersonTrans;

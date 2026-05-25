@@ -177,6 +177,25 @@ public class Panel : MonoBehaviour
 
     int radarListStart = 0;
     int c = 0;
+
+    bool TryGetValidRadarTarget(GameObject[] indicators, int index, out GameObject target)
+    {
+        target = null;
+        if (indicators == null || index < 0 || index >= indicators.Length)
+            return false;
+        GameObject indicatorObject = indicators[index];
+        if (indicatorObject == null)
+            return false;
+        Indicator indicator = indicatorObject.GetComponent<Indicator>();
+        if (indicator == null || indicator.target == null)
+        {
+            Destroy(indicatorObject);
+            return false;
+        }
+        target = indicator.target;
+        return target != null;
+    }
+
     void FixedUpdate()
     {
         if (player == null || player.ship == null)
@@ -191,10 +210,13 @@ public class Panel : MonoBehaviour
                 GameObject[] indi = GameObject.FindGameObjectsWithTag("UI Circle");
                 for (int i = 0; i < subpanels3.Length; i++)
                 {
-                    if (indi.Length > i + radarListStart && i + radarListStart >= 0 && indi[i + radarListStart] != null && subpanels3[i] != null && subpanels3[i].gameObject != null && subpanels3[i].gameObject.transform.childCount > 0)
+                    int indicatorIndex = i + radarListStart;
+                    GameObject currentTarget;
+                    if (subpanels3[i] != null && subpanels3[i].gameObject != null && subpanels3[i].gameObject.transform.childCount > 0 && TryGetValidRadarTarget(indi, indicatorIndex, out currentTarget))
                     {
                         subpanels3[i].gameObject.SetActive(true);
-                        subpanels3[i].gameObject.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = indi[i + radarListStart].GetComponent<Indicator>().target.GetComponent<SpaceObject>().name;
+                        SpaceObject targetSpaceObject = currentTarget.GetComponent<SpaceObject>();
+                        subpanels3[i].gameObject.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = targetSpaceObject == null ? "---" : targetSpaceObject.name;
                     }
                     else
                     {
@@ -471,11 +493,10 @@ public class Panel : MonoBehaviour
                 {
                     GameObject[] indi = GameObject.FindGameObjectsWithTag("UI Circle");
                     int index = -this.id - 1 + radarListStart;
-                    if (index >= 0 && index < indi.Length)
+                    GameObject currentTarget;
+                    if (TryGetValidRadarTarget(indi, index, out currentTarget))
                     {
-                        GameObject currentTarget = indi[index].GetComponent<Indicator>().target;
-                        
-                            player.ship.ClearTargetLock(currentTarget);
+                        player.ship.ClearTargetLock(currentTarget);
                     }
                 }
                 break;
@@ -484,9 +505,9 @@ public class Panel : MonoBehaviour
                 {
                     GameObject[] indi = GameObject.FindGameObjectsWithTag("UI Circle");
                     int index = -this.id - 1 + radarListStart;
-                    if (index >= 0 && index < indi.Length)
+                    GameObject currentTarget;
+                    if (TryGetValidRadarTarget(indi, index, out currentTarget))
                     {
-                        GameObject currentTarget = indi[index].GetComponent<Indicator>().target;
                         if (player.ship.pointTo == currentTarget.gameObject)
                             player.ship.pointTo = null;
                         else
@@ -499,9 +520,9 @@ public class Panel : MonoBehaviour
                 {
                     GameObject[] indi = GameObject.FindGameObjectsWithTag("UI Circle");
                     int index = -this.id - 1 + radarListStart;
-                    if (index >= 0 && index < indi.Length)
+                    GameObject currentTarget;
+                    if (TryGetValidRadarTarget(indi, index, out currentTarget))
                     {
-                        GameObject currentTarget = indi[index].GetComponent<Indicator>().target;
                         if (!player.ship.turrets[0].targets.ContainsKey(currentTarget))
                         {
                             player.ship.Target(currentTarget, -1, 0);
@@ -542,9 +563,9 @@ public class Panel : MonoBehaviour
                 {
                     GameObject[] indi = GameObject.FindGameObjectsWithTag("UI Circle");
                     int index = -this.id - 1 + radarListStart;
-                    if (index >= 0 && index < indi.Length)
+                    GameObject currentTarget;
+                    if (TryGetValidRadarTarget(indi, index, out currentTarget))
                     {
-                        GameObject currentTarget = indi[index].GetComponent<Indicator>().target;
                         player.ship.Target(currentTarget, -1, 1);
                     }
                 }
@@ -842,9 +863,9 @@ public class Panel : MonoBehaviour
             {
                 GameObject[] indi = GameObject.FindGameObjectsWithTag("UI Circle");
                 int index = -this.id - 1 + radarListStart;
-                if (index >= 0 && index < indi.Length)
+                GameObject currentTarget;
+                if (TryGetValidRadarTarget(indi, index, out currentTarget))
                 {
-                    GameObject currentTarget = indi[index].GetComponent<Indicator>().target;
                     if (player.ship.turrets[0].targets.ContainsKey(currentTarget))
                     {
                         t.text = "Fire Turrets: ON";
@@ -858,9 +879,9 @@ public class Panel : MonoBehaviour
             {
                 GameObject[] indi = GameObject.FindGameObjectsWithTag("UI Circle");
                 int index = -this.id - 1 + radarListStart;
-                if (index >= 0 && index < indi.Length)
+                GameObject currentTarget;
+                if (TryGetValidRadarTarget(indi, index, out currentTarget))
                 {
-                    GameObject currentTarget = indi[index].GetComponent<Indicator>().target;
                     if (player.ship.pointTo == currentTarget.gameObject)
                         t.text = "Point Towards: ON";
                     else
@@ -1133,9 +1154,9 @@ public class Panel : MonoBehaviour
             case "radar_target_lock":
                 GameObject[] indi = GameObject.FindGameObjectsWithTag("UI Circle");
                 int index = -this.id - 1 + radarListStart;
-                if (index >= 0 && index < indi.Length)
+                GameObject currentTarget;
+                if (TryGetValidRadarTarget(indi, index, out currentTarget))
                 {
-                    GameObject currentTarget = indi[index].GetComponent<Indicator>().target;
                     foreach (GameObject o in GameObject.FindGameObjectsWithTag("UI Target"))
                     {
                         if (o.GetComponent<Indicator>().target == currentTarget)
